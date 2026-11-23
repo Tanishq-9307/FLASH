@@ -666,7 +666,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Sections 5.4 and 5.9. Write one migration with a plain-language header for reject_action (atomic, log not_executed, tool message, authenticated only) and the five tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-6 · Function: expire_stale_approval
-**Depends on:** M3-2 · **Status:** [ ]
+**Depends on:** M3-2 · **Status:** [x]
 **Goal:** mark overdue approvals expired and tell the history.
 **Steps:** wraps the internal helper; atomic update for `pending` or `approved` with `expires_at <= now()`; log `not_executed`; tool message; service_role only.
 **Tests:** short-TTL approval expires after the window; not-yet-due approval untouched; second call is a no-op; anon and authenticated denied.
