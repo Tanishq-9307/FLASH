@@ -10,10 +10,11 @@
 // notices are aria-live assertive.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { APICallError, DefaultChatTransport } from "ai";
 import SafeMarkdown from "./markdown";
+import { useQuickAsk } from "./quick-ask";
 
 function textOf(message: { parts?: unknown }): string {
   const parts = (message.parts ?? []) as Array<{ type?: string; text?: string }>;
@@ -28,6 +29,26 @@ export default function Chat() {
   const { messages, sendMessage, status, error, stop, regenerate } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
+
+  // A message submitted from the header quick-ask bar arrives in client
+  // state (never in the URL). Consume it once on mount and send it through
+  // the normal composer path — same route, same Model Gate. The consumed
+  // flag stops React 19 StrictMode's double effect run (dev only) from
+  // sending it twice; it resets when there is nothing pending, so a later
+  // quick-ask is still delivered.
+  const { pending, clear } = useQuickAsk();
+  const consumedRef = useRef(false);
+  useEffect(() => {
+    if (!pending) {
+      consumedRef.current = false;
+      return;
+    }
+    if (consumedRef.current) return;
+    consumedRef.current = true;
+    const text = pending;
+    clear();
+    void sendMessage({ text });
+  }, [pending, clear, sendMessage]);
 
   const isStreaming = status === "streaming" || status === "submitted";
   const isCapReached =

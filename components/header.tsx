@@ -1,5 +1,5 @@
-// Header (M1-9, DESIGN.md §5.3/§2): wordmark, truthful status chip, clock,
-// account menu. The command bar is built in M1-10b, not here.
+// Header (M1-9, DESIGN.md §5.3/§2): wordmark, truthful status chip, quick-ask
+// bar (M1-10b), clock, account menu.
 //
 // The wordmark is the plain-text placeholder from DESIGN.md §11 (already
 // recorded there: "FLASH" in JetBrains Mono until an owned SVG exists).
@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/login/actions";
+import { QuickAskBar } from "./quick-ask";
 
 export type HealthStatus = "checking" | "online" | "offline" | "limit_reached";
 
@@ -143,7 +144,7 @@ export default function Header({ userEmail }: { userEmail: string | null }) {
         FLASH
       </span>
       <StatusChip status={status} />
-      <div className="flex-1" />
+      <QuickAskBar />
       <time
         dateTime={now?.toISOString()}
         className="hidden font-mono text-sm text-text-secondary sm:block"

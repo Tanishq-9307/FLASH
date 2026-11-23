@@ -5,12 +5,14 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Header, { StatusChip } from "@/components/header";
+import { QuickAskProvider } from "@/components/quick-ask";
 
 const pathnameState = vi.hoisted(() => ({ current: "/chat" }));
 const signOutMock = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathnameState.current,
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/app/login/actions", () => ({
@@ -52,44 +54,72 @@ describe("Header", () => {
   });
 
   it("shows Online from /api/health", async () => {
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     expect(await screen.findByText("Online")).toBeDefined();
     expect(global.fetch).toHaveBeenCalledWith("/api/health", { cache: "no-store" });
   });
 
   it("shows Limit reached when the cap is hit", async () => {
     mockHealth({ status: "limit_reached", usage: 20, cap: 20 });
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     expect(await screen.findByText("Limit reached")).toBeDefined();
   });
 
   it("shows Offline when the check fails", async () => {
     global.fetch = vi.fn().mockRejectedValue(new Error("network down")) as unknown as typeof fetch;
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     expect(await screen.findByText("Offline")).toBeDefined();
   });
 
   it("shows Offline on a non-OK health response", async () => {
     mockHealth({ error: "unauthenticated" }, false);
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     expect(await screen.findByText("Offline")).toBeDefined();
   });
 
   it("renders nothing on /login", () => {
     pathnameState.current = "/login";
-    const { container } = render(<Header userEmail={null} />);
+    const { container } = render(
+      <QuickAskProvider>
+        <Header userEmail={null} />
+      </QuickAskProvider>,
+    );
     expect(container.innerHTML).toBe("");
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("shows the clock after mount", async () => {
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     const time = await screen.findByText(/\d{2}:\d{2}/);
     expect(time.tagName).toBe("TIME");
   });
 
   it("account menu shows the email and signs out", async () => {
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     const avatar = screen.getByRole("button", { name: `Account menu for ${EMAIL}` });
     expect(within(document.body).queryByRole("menu")).toBeNull();
     fireEvent.click(avatar);
@@ -101,7 +131,11 @@ describe("Header", () => {
   });
 
   it("Escape closes the account menu", () => {
-    render(<Header userEmail={EMAIL} />);
+    render(
+      <QuickAskProvider>
+        <Header userEmail={EMAIL} />
+      </QuickAskProvider>,
+    );
     const avatar = screen.getByRole("button", { name: `Account menu for ${EMAIL}` });
     fireEvent.click(avatar);
     expect(screen.getByRole("menu")).toBeDefined();

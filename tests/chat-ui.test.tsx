@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
 import Chat from "@/components/chat";
+import { QuickAskProvider } from "@/components/quick-ask";
 
 type ChatState = {
   messages: Array<{ id: string; role: string; parts: Array<{ type: string; text: string }> }>;
@@ -54,7 +55,11 @@ function assistantMessage(id: string, text: string) {
 
 describe("Chat UI", () => {
   it("shows the empty state with no messages", () => {
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     expect(screen.getByText("No messages yet. Ask FLASH anything…")).toBeDefined();
   });
 
@@ -63,7 +68,11 @@ describe("Chat UI", () => {
       userMessage("u1", "hello"),
       assistantMessage("a1", "Hi **there**"),
     ];
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     expect(screen.getByText("hello")).toBeDefined();
     expect(screen.getByText("there").tagName).toBe("STRONG");
     expect(screen.queryByText("No messages yet. Ask FLASH anything…")).toBeNull();
@@ -72,13 +81,21 @@ describe("Chat UI", () => {
   it("shows the streaming indicator while streaming", () => {
     chatState.current.messages = [assistantMessage("a1", "Hello")];
     chatState.current.status = "streaming";
-    const { container } = render(<Chat />);
+    const { container } = render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     expect(container.querySelector(".animate-pulse")).not.toBeNull();
     expect(screen.getByRole("button", { name: /Stop/ })).toBeDefined();
   });
 
   it("sends the composer text and clears the input", () => {
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     const input = screen.getByLabelText("Message FLASH");
     fireEvent.change(input, { target: { value: "hello" } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -88,14 +105,22 @@ describe("Chat UI", () => {
 
   it("Stop calls stop while streaming", () => {
     chatState.current.status = "streaming";
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: /Stop/ }));
     expect(chatState.current.stop).toHaveBeenCalledTimes(1);
   });
 
   it("shows the error state with Retry, and Retry regenerates", () => {
     chatState.current.error = new Error("network down");
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     expect(screen.getByRole("alert").textContent).toContain("The reply failed.");
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     expect(chatState.current.regenerate).toHaveBeenCalledTimes(1);
@@ -108,7 +133,11 @@ describe("Chat UI", () => {
       requestBodyValues: {},
       statusCode: 429,
     });
-    render(<Chat />);
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("Daily limit reached");
     expect(within(document.body).queryByRole("button", { name: /Retry/ })).toBeNull();

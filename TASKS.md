@@ -387,7 +387,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add renderer unit tests. Run the checkpoint routine.
 
 ### M1-10b · Header quick-ask bar
-**Depends on:** M1-10 · **Status:** [ ]
+**Depends on:** M1-10 · **Status:** [x]
 **Goal:** the mockup's "Ask FLASH anything…" bar, working.
 **Steps:** single-line input in the header with a visible label for screen readers; `Ctrl+Space` focuses it (hint hidden on touch devices); submitting opens Chat and sends the text through the normal composer path (same Model Gate); the text travels in client state, never in the URL; the bar is hidden on the Chat screen (the composer is the input) and on mobile (the Chat tab is the input); the microphone button is added in M4.
 **Done when:** typing in the bar and pressing Enter opens Chat and sends the message; the bar is hidden on Chat and on mobile.
