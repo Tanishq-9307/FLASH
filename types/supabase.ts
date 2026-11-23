@@ -12,10 +12,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_usage: {
+        Row: {
+          user_id: string
+          usage_date: string
+          model_calls: number
+        }
+        Insert: {
+          user_id?: string
+          usage_date: string
+          model_calls?: number
+        }
+        Update: {
+          user_id?: string
+          usage_date?: string
+          model_calls?: number
+        }
+        Relationships: [
+        ]
+      }
+      settings: {
+        Row: {
+          user_id: string
+          memory_enabled: boolean
+        }
+        Insert: {
+          user_id?: string
+          memory_enabled?: boolean
+        }
+        Update: {
+          user_id?: string
+          memory_enabled?: boolean
+        }
+        Relationships: [
+        ]
+      }
     }
     Views: {
     }
     Functions: {
+      set_updated_at: {
+        Args: {
+        }
+        Returns: unknown
+      }
     }
     Enums: {
     }

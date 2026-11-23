@@ -25,7 +25,7 @@ Use whenever a task creates or changes database objects. One migration per task 
 ## 3. Validate with PGlite (no remote dev project in this build)
 
 - Apply the migration to a fresh PGlite database, in timestamp order with all earlier migrations.
-- PGlite has no Auth (`auth.users`, `auth.uid()`) and no Storage. Migrations and tests that touch them use local stand-ins (see `docs/TECH_STACK.md` §2.1): stub `auth.uid()` with a fixed test UUID and create the referenced `auth.users` row shape in the test schema. RLS policies and functions are validated as SQL; auth-dependent paths are verified against the real service when the owner connects one.
+- PGlite has no Auth (`auth.users`, `auth.uid()`) and no Storage. Migrations and tests that touch them use local stand-ins (see `docs/TECH_STACK.md` §2.1): stub `auth.uid()` with a fixed test UUID and create the referenced `auth.users` row shape in the test schema, plus the three Supabase built-in roles (`anon`, `authenticated`, `service_role`, created `NOLOGIN` — the migrations' GRANT/REVOKE statements need them to exist). RLS policies and functions are validated as SQL; auth-dependent paths are verified against the real service when the owner connects one.
 - Run the checks from `docs/DATABASE.md` §6 that apply to the change: isolation (user A sees none of user B's rows), privilege denials for `anon`/`authenticated` on service-role functions, cap/refund behaviour, atomic transitions under parallel calls, and the `updated_at` trigger.
 
 ## 4. Finish

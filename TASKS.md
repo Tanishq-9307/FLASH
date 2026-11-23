@@ -263,7 +263,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Note in the code that authorization is checked again in every route and action. Run the checkpoint routine.
 
 ### M1-3 · Migration: helper, settings, api_usage, grants
-**Depends on:** M1-1 · **Status:** [ ]
+**Depends on:** M1-1 · **Status:** [x]
 **Goal:** configuration and quota tables exist with locked-down privileges.
 **Steps:**
 - `supabase migration new m1_tables`.

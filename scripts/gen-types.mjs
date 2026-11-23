@@ -15,8 +15,10 @@
 //
 // Auth stand-ins: PGlite has no `auth` schema, so before applying migrations
 // the script creates a minimal one — an `auth.users` table (id only) and an
-// `auth.uid()` stub returning the zero UUID. Migrations must be written so
-// they validate against these stand-ins (see the `add-migration` skill).
+// `auth.uid()` stub returning the zero UUID — plus the three Supabase
+// built-in roles (`anon`, `authenticated`, `service_role`), which the
+// migrations' GRANT/REVOKE statements reference. Migrations must be written
+// so they validate against these stand-ins (see the `add-migration` skill).
 // RLS policies and functions are validated as SQL; auth-dependent paths are
 // verified against the real service when the owner connects one.
 //
@@ -74,6 +76,9 @@ const SCALARS = new Map([
   ["macaddr", "string"],
   ["json", "Json"],
   ["jsonb", "Json"],
+  // Postgres pseudo-type with no TypeScript equivalent. `set_updated_at` is
+  // a trigger helper, never called from TypeScript; `unknown` is honest.
+  ["trigger", "unknown"],
 ]);
 
 function pgTypeToTs(dataType, udtName) {
@@ -401,6 +406,18 @@ async function main() {
       CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
       CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
         AS $$ SELECT '00000000-0000-0000-0000-000000000000'::uuid $$;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+          CREATE ROLE anon NOLOGIN;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+          CREATE ROLE authenticated NOLOGIN;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+          CREATE ROLE service_role NOLOGIN;
+        END IF;
+      END $$;
     `);
     for (const file of files) {
       const { readFile } = await import("node:fs/promises");
