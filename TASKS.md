@@ -427,7 +427,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run SELECT version() on dev and production, confirm 15 or later, cite the release notes for the column-list SET NULL syntax, and update DATABASE.md. Run the checkpoint routine.
 
 ### M2-1 · Migration: conversations
-**Depends on:** M2-0 · **Status:** [ ]
+**Depends on:** M2-0 · **Status:** [x]
 **Goal:** the conversations table.
 **Steps:** `supabase migration new m2_conversations`; create the table per DATABASE.md 3.3 (UNIQUE (id, user_id), `updated_at` trigger, policies, grants). The delete guard comes in M3 (it needs `tool_approvals`).
 **Done when:** table exists, RLS on, types generated.
