@@ -399,7 +399,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add component tests. Run the checkpoint routine.
 
 ### M1-11 · Milestone 1 gate
-**Depends on:** M1-0 to M1-10b · **Status:** [ ]
+**Depends on:** M1-0 to M1-10b · **Status:** [x]
 **Goal:** prove PRD.md Section 7 M1 criteria and deploy.
 **Steps:** run the full suite, lint, type check, build, the bundle check on `.next/static`, and the DESIGN.md Section 10.2 visual review (including a contrast check on the built UI); verify each criterion with evidence in PROGRESS.md (unauthenticated users blocked; signups disabled; limiter counts calls, fails closed, never exceeds cap, refunds only on pre-dispatch abort; chat streams; keys never in client; UI states); **production deployment:** push migrations to the production Supabase project, verify Vercel production environment variables, smoke-test the live URL and sign-in, record results; tag `v0.1.0`.
 **Done when:** every criterion has evidence; live deployment verified; tag exists.
