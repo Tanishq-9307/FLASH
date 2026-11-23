@@ -610,7 +610,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the three tests. Apply to dev and regenerate types. Run the checkpoint routine.
 
 ### M3-1b · Migration: immutability triggers and delete guard
-**Depends on:** M3-1a · **Status:** [ ]
+**Depends on:** M3-1a · **Status:** [x]
 **Goal:** approvals and logs cannot be rewritten; conversations with an open approval cannot be deleted.
 **Steps:** BEFORE UPDATE triggers on `tool_approvals` and `action_logs` (immutable columns per DATABASE.md 3.8 and 3.9; `conversation_id` may change only to NULL); a delete guard on `conversations` (SECURITY DEFINER, fixed `search_path`) that refuses deletion while an approval is `pending` or `approved`.
 **Done when:** applied to dev; types generated.

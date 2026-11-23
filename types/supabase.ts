@@ -505,6 +505,21 @@ export type Database = {
         }
         Returns: string
       }
+      m3_approval_immutable: {
+        Args: {
+        }
+        Returns: unknown
+      }
+      m3_guard_conversation_delete: {
+        Args: {
+        }
+        Returns: unknown
+      }
+      m3_log_immutable: {
+        Args: {
+        }
+        Returns: unknown
+      }
       refund_api_call: {
         Args: {
           p_user_id: string | null
