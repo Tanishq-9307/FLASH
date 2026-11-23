@@ -777,7 +777,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Build the registry with get_tasks, create_task, save_memory; state-changing tools have no automatic execute. Add schema tests including unknown tools. Run the checkpoint routine.
 
 ### M3-16 · Memory injection and the off switch
-**Depends on:** M3-15 · **Status:** [ ] code done 2026-11-07; needs the M3 SQL applied
+**Depends on:** M3-15 · **Status:** [x]
 **Goal:** approved memories reach the model, safely and optionally.
 **Steps:** when `settings.memory_enabled` is true (missing row means true), load memories and inject them as a clearly delimited block of user data (not instructions); when off, inject nothing. Cap the number and size injected.
 **Tests:** memories appear when enabled; nothing is injected when off; delimiter present; size cap enforced.

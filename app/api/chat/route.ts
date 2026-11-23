@@ -76,6 +76,7 @@ import {
 } from "@/lib/documents/retrieve";
 import { verifyAnswerCitations } from "@/lib/documents/citations";
 import { buildDocumentPrompt } from "@/lib/documents/document-prompt";
+import { loadMemoryBlock } from "@/lib/memory-injection";
 
 export const maxDuration = 60;
 
@@ -293,13 +294,26 @@ export async function POST(request: Request) {
     documentContext = buildDocumentPrompt(documentTitle, documentPages);
   }
 
+  // Approved memories, as a delimited block of user data (M3-16).
+  // A failed load must not block the reply: memories are background
+  // about the owner, not the answer itself. Log it and continue
+  // without the block — the model still answers the question.
+  let memoryBlock: string | null = null;
+  try {
+    memoryBlock = await loadMemoryBlock(supabase, user.id);
+  } catch (err) {
+    console.error("Memory load failed", err);
+  }
+
+  const instructionParts = [SYSTEM_PROMPT];
+  if (memoryBlock) instructionParts.push(memoryBlock);
+  if (documentContext) instructionParts.push(documentContext);
+
   let result: ReturnType<typeof streamText>;
   try {
     result = streamText({
       model: google("gemini-3.8-flash"),
-      instructions: documentContext
-        ? `${SYSTEM_PROMPT}\n\n${documentContext}`
-        : SYSTEM_PROMPT,
+      instructions: instructionParts.join("\n\n"),
       messages: await convertToModelMessages(history),
       abortSignal: request.signal,
     });
