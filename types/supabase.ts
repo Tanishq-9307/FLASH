@@ -522,6 +522,12 @@ export type Database = {
         }
         Returns: { result_code: string; approval_id: string; log_id: string }[]
       }
+      execute_approved_action: {
+        Args: {
+          p_approval_id: string | null
+        }
+        Returns: { result_code: string; result_payload: Json }[]
+      }
       expire_stale_approval: {
         Args: {
           p_user_id: string | null

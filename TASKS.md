@@ -676,7 +676,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Sections 5.1 and 5.4 and DATABASE.md Section 5.1. Write one migration with a plain-language header exposing the internal expire helper as service-role-only expire_stale_approval, with the four tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-7 · Function: execute_approved_action (1 of 4): claim and classification
-**Depends on:** M3-4, M3-5, M3-6 · **Status:** [ ]
+**Depends on:** M3-4, M3-5, M3-6 · **Status:** [x]
 **Goal:** the atomic claim and the result codes.
 **Steps:** per DATABASE.md 5.3: a function returning (code, payload); claim update with ownership, status, expiry, `retry_count < 3`, and recomputed hash; on no row, classify into `replay`, `expired`, `hash_mismatch`, `exhausted`, `not_approved` with no writes; the claim, dispatch, and every later write sit inside one `BEGIN ... EXCEPTION` block from the start (any error rolls everything back, including the claim, and returns `tool_error` with a sanitised message); dispatch is a temporary placeholder that returns success for the known tool names without writing anything (replaced in M3-8 and M3-9) and raises for unknown names; authenticated only.
 **Tests:** five parallel calls on one approved approval give exactly one `claimed` and four `replay`; a dispatch error returns `tool_error` and the claim is rolled back (status still `approved`); pending gives `not_approved`; consumed gives `replay`; expired gives `expired`; tampered parameters (edited as superuser with the immutability trigger disabled for this test only, then re-enabled) give `hash_mismatch`; `retry_count` 3 gives `exhausted`.
