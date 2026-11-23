@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow, JetBrains_Mono, Rajdhani } from "next/font/google";
 import "./globals.css";
+import { MobileTabBar, NavRail } from "@/components/nav";
 
 // DESIGN.md Section 4 (owner decision 2026-11-07): Barlow for body text,
 // Rajdhani for titles/labels/logo/greeting, JetBrains Mono for timestamps,
@@ -37,7 +38,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${barlow.variable} ${rajdhani.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* Navigation shell (M1-8): the icon rail is fixed on desktop, the tab
+          bar fixed at the bottom on mobile; the content clears both. */}
+      <body className="min-h-full">
+        <NavRail />
+        <div className="pb-16 md:pb-0 md:pl-[88px]">{children}</div>
+        <MobileTabBar />
+      </body>
     </html>
   );
 }

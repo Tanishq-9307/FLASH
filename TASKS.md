@@ -348,7 +348,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the five route tests with the model mocked. Run the checkpoint routine.
 
 ### M1-8 · Shell: navigation
-**Depends on:** M1-1 · **Status:** [ ]
+**Depends on:** M1-1 · **Status:** [x]
 **Goal:** icon rail on desktop, tab bar on mobile.
 **Steps:** per DESIGN.md 5.1 and 5.2: rail items Overview, Chat, Tasks & Notes, Memory, Activity, Settings (Documents appears in M5; unbuilt screens render a clear "not built yet" page, not fake content); active state in cyan with icon and text; tab bar below 768px with 44px targets; focus rings.
 **Done when:** layout switches at 768px; keyboard navigation works.
