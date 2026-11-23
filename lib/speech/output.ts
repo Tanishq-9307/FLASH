@@ -1,8 +1,9 @@
-// Browser spoken replies (M4-1). Wraps the browser's free
+// Browser spoken replies (M4-1, wired in M4-3). Wraps the browser's free
 // speechSynthesis: speak() interrupts anything currently speaking, picks a
-// voice through the injected selector (M4-3 provides the M4-0 rule), and
-// prepares the text through the injected function (M4-3 provides the
-// markdown/URL cleaning). Rate and pitch are constructor settings.
+// voice through the injected selector (default: the M4-0 en-GB rule in
+// lib/speech/voice-select.ts), and prepares the text through the injected
+// function (default: the M4-3 markdown/URL cleaner in
+// lib/speech/text-clean.ts). Rate and pitch are constructor settings.
 //
 // Voices load asynchronously in some browsers (getVoices() is empty until
 // the voiceschanged event), so the selector runs fresh on every speak() —
@@ -14,6 +15,8 @@ import type {
   SpeechOutputEvents,
   SpeechOutputState,
 } from "./types";
+import { selectVoice as defaultSelectVoice } from "./voice-select";
+import { cleanTextForSpeech } from "./text-clean";
 
 /** Picks the voice for a reply from what this device offers. */
 export type VoiceSelector = (
@@ -42,8 +45,8 @@ export class BrowserSpeechOutput implements SpeechOutput {
   private _state: SpeechOutputState = "idle";
 
   constructor(
-    private selectVoice: VoiceSelector,
-    private prepareText: PrepareText = (text) => text,
+    private selectVoice: VoiceSelector = defaultSelectVoice,
+    private prepareText: PrepareText = cleanTextForSpeech,
     private events: SpeechOutputEvents = {},
     private options: SpeechOutputOptions = {},
   ) {}
@@ -134,9 +137,10 @@ export class NullSpeechOutput implements SpeechOutput {
 }
 
 /** Browser implementation when the browser can speak, null otherwise. */
+/** Defaults are the M4-0 voice rule and the M4-3 text cleaner. */
 export function createSpeechOutput(
-  selectVoice: VoiceSelector,
-  prepareText: PrepareText = (text) => text,
+  selectVoice: VoiceSelector = defaultSelectVoice,
+  prepareText: PrepareText = cleanTextForSpeech,
   events: SpeechOutputEvents = {},
   options: SpeechOutputOptions = {},
 ): SpeechOutput {

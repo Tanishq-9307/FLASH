@@ -513,3 +513,29 @@ describe("fake provider", () => {
     expect(createSpeechInput(async () => "", {}).kind).toBe("null");
   });
 });
+
+describe("BrowserSpeechOutput defaults (M4-3 wiring)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    delete (window as unknown as Record<string, unknown>).speechSynthesis;
+    delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+  });
+
+  it("speaks cleaned text with the en-GB male voice by default", () => {
+    const synth = installSynthFake();
+    const output = new BrowserSpeechOutput();
+    output.speak("Hello **world**, see https://example.com for more.");
+    expect(synth.spoken).toHaveLength(1);
+    expect(synth.spoken[0].text).toBe("Hello world, see for more.");
+    expect(synth.spoken[0].voice?.name).toBe("Google UK English Male");
+  });
+
+  it("createSpeechOutput with no arguments uses the same defaults", () => {
+    const synth = installSynthFake();
+    const output = createSpeechOutput();
+    expect(output.kind).toBe("browser");
+    output.speak("Use `pip install` now.");
+    expect(synth.spoken[0].text).toBe("Use pip install now.");
+  });
+});
