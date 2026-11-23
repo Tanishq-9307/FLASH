@@ -452,7 +452,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write Vitest checks for each forbidden insert, update, and delete. Apply to dev and regenerate types. Run the checkpoint routine.
 
 ### M2-3 · Migration: tasks and notes
-**Depends on:** M2-2 · **Status:** [ ]
+**Depends on:** M2-2 · **Status:** [x]
 **Goal:** tasks and searchable notes.
 **Steps:** per DATABASE.md 3.5 and 3.6: `due_date`, status CHECK, `UNIQUE (id, user_id)`, `updated_at` triggers, length CHECKs, `(user_id, status)` index, notes GIN full-text index on `to_tsvector('english', title || ' ' || content)`; policies and grants.
 **Done when:** applied; types generated.

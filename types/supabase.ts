@@ -118,6 +118,37 @@ export type Database = {
           },
         ]
       }
+      notes: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          content: string
+          search: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          title: string
+          content: string
+          search?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          content?: string
+          search?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
       settings: {
         Row: {
           user_id: string
@@ -130,6 +161,37 @@ export type Database = {
         Update: {
           user_id?: string
           memory_enabled?: boolean
+        }
+        Relationships: [
+        ]
+      }
+      tasks: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          due_date: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          title: string
+          due_date?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          due_date?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
         Relationships: [
         ]
