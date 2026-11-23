@@ -1088,7 +1088,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add the three tests. Run the checkpoint routine.
 
 ### M5-5 · Documents UI
-**Depends on:** M5-4 · **Status:** [ ]
+**Depends on:** M5-4 · **Status:** [ ] (DEFERRED — UI set aside per owner instruction 23 Nov 2026; UI pass)
 **Goal:** upload and ask from the UI.
 **Steps:** Documents screen per DESIGN.md (upload zone with limits, list with status, delete); appears in navigation now; loading, empty, error, success states.
 **Tests:** state tests; delete removes rows and files.
@@ -1098,7 +1098,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DESIGN.md Sections 5.1 and 9. Build the Documents screen with upload, status, delete (rows and file), and all states, plus tests. Run the checkpoint routine.
 
 ### M5-6 · Hostile PDF test
-**Depends on:** M5-4 · **Status:** [ ]
+**Depends on:** M5-4 · **Status:** [x] (2026-11-23 — see PROGRESS.md)
 **Goal:** a malicious PDF cannot cause an action.
 **Steps:** a fixture PDF containing instructions to create a task, reveal memories, and print a markdown image link; run the loop with the model mocked to obey; assert no execution without approval, nothing leaked, image not rendered.
 **Tests:** the scenario.
