@@ -742,7 +742,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the three tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-13 · Function: mark_outcome_delivered
-**Depends on:** M3-1b · **Status:** [ ]
+**Depends on:** M3-1b · **Status:** [x]
 **Goal:** exactly one follow-up per outcome.
 **Steps:** service_role only; atomic update setting `outcome_delivered_at` only for `consumed`, `rejected`, `expired`, `failed` and only when null.
 **Tests:** ten parallel calls: exactly one succeeds; non-final states return nothing; anon and authenticated denied.

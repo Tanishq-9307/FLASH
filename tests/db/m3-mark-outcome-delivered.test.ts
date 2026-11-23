@@ -11,9 +11,16 @@ describe("mark_outcome_delivered (M3-13)", () => {
   let db: PGlite;
   let userA: string;
   let userB: string;
-  let conversationA: string;
 
   const seedApproval = async (status: string): Promise<string> => {
+    // Each seed gets its own conversation: the one-open-approval
+    // partial index forbids two open (pending/approved) approvals in
+    // the same conversation.
+    const conv = await callAs<{ id: string }>(
+      db,
+      "authenticated",
+      "INSERT INTO conversations (title) VALUES ('seed') RETURNING id",
+    );
     const r = await db.query<{ id: string }>(
       `INSERT INTO tool_approvals
         (user_id, conversation_id, tool_call_id, tool_name, parameters, parameters_hash,
@@ -25,7 +32,7 @@ describe("mark_outcome_delivered (M3-13)", () => {
         RETURNING id`,
       [
         userA,
-        conversationA,
+        conv.rows[0].id,
         `call-${Date.now()}-${Math.random()}`,
         status,
       ],
@@ -50,12 +57,6 @@ describe("mark_outcome_delivered (M3-13)", () => {
     userA = await createTestUser(db);
     userB = await createTestUser(db);
     await setTestUser(db, userA);
-    const a = await callAs<{ id: string }>(
-      db,
-      "authenticated",
-      "INSERT INTO conversations (title) VALUES ('A') RETURNING id",
-    );
-    conversationA = a.rows[0].id;
   });
 
   afterAll(async () => {

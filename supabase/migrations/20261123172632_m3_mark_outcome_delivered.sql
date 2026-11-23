@@ -32,8 +32,8 @@ BEGIN
   WHERE id = p_approval_id
     AND user_id = p_user_id
     AND status IN ('consumed', 'rejected', 'expired', 'failed')
-    AND outcome_delivered_at IS NULL
-  RETURNING id, outcome_delivered_at;
+    AND tool_approvals.outcome_delivered_at IS NULL
+  RETURNING id, tool_approvals.outcome_delivered_at;
 END;
 $$;
 

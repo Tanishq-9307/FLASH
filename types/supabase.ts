@@ -602,6 +602,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_outcome_delivered: {
+        Args: {
+          p_user_id: string | null
+          p_approval_id: string | null
+        }
+        Returns: { approval_id: string; outcome_delivered_at: string }[]
+      }
       record_claim_failure: {
         Args: {
           p_approval_id: string | null
