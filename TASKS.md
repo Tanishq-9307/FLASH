@@ -439,7 +439,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M2-2 · Migration: messages
-**Depends on:** M2-1 · **Status:** [ ]
+**Depends on:** M2-1 · **Status:** [x]
 **Goal:** a messages table the client cannot forge.
 **Steps:** per DATABASE.md 3.4: composite FK with cascade, role CHECK, length CHECK, `parts` JSONB, index `(conversation_id, created_at)`; client INSERT only with `role = 'user' AND parts IS NULL AND tool_call_id IS NULL`; no UPDATE; no client DELETE; grants as in Section 4.
 **Done when:** migration applied; types generated.

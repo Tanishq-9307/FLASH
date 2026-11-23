@@ -24,11 +24,15 @@ import { join } from "node:path";
 
 // The auth stand-ins mirror scripts/gen-types.mjs (kept in sync by hand;
 // gen-types.mjs is the canonical copy used by the type generator).
+// `auth.uid()` returns the UUID in the session setting
+// `app.current_user_id` when set, else the zero UUID — so tests can act as
+// different users via `setTestUser` (M2-5 isolation needs user A vs B;
+// the M1 fixed-UUID stub could not express that).
 const AUTH_STANDINS = `
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
-  AS $$ SELECT '00000000-0000-0000-0000-000000000000'::uuid $$;
+  AS $$ SELECT COALESCE(NULLIF(current_setting('app.current_user_id', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid) $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
     CREATE ROLE anon NOLOGIN;
@@ -65,6 +69,16 @@ export async function createTestUser(db: PGlite): Promise<string> {
 /** Admin-API equivalent: delete a test user (ON DELETE CASCADE cleans up). */
 export async function deleteTestUser(db: PGlite, id: string): Promise<void> {
   await db.query("DELETE FROM auth.users WHERE id = $1", [id]);
+}
+
+/**
+ * Act as a user: subsequent `auth.uid()` calls (RLS policies, column
+ * DEFAULTs) return this id until changed. Session-scoped (is_local=false),
+ * so it survives the SET ROLE / RESET ROLE round-trips in `callAs`.
+ * Sequential use only: PGlite is a single connection.
+ */
+export async function setTestUser(db: PGlite, id: string): Promise<void> {
+  await db.query("SELECT set_config('app.current_user_id', $1, false)", [id]);
 }
 
 /**

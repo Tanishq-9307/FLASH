@@ -56,6 +56,68 @@ export type Database = {
         Relationships: [
         ]
       }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          user_id: string
+          role: string
+          content: string
+          parts: Json | null
+          tool_call_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          user_id?: string
+          role: string
+          content: string
+          parts?: Json | null
+          tool_call_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          user_id?: string
+          role?: string
+          content?: string
+          parts?: Json | null
+          tool_call_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_user_id_fkey",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "messages_conversation_id_user_id_fkey",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "messages_conversation_id_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "messages_conversation_id_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
+        ]
+      }
       settings: {
         Row: {
           user_id: string

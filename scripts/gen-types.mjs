@@ -15,10 +15,13 @@
 //
 // Auth stand-ins: PGlite has no `auth` schema, so before applying migrations
 // the script creates a minimal one — an `auth.users` table (id only) and an
-// `auth.uid()` stub returning the zero UUID — plus the three Supabase
-// built-in roles (`anon`, `authenticated`, `service_role`), which the
-// migrations' GRANT/REVOKE statements reference. Migrations must be written
-// so they validate against these stand-ins (see the `add-migration` skill).
+// `auth.uid()` stub — plus the three Supabase built-in roles (`anon`,
+// `authenticated`, `service_role`), which the migrations' GRANT/REVOKE
+// statements reference. The stub returns the UUID in the session setting
+// `app.current_user_id` when set, else the zero UUID, so tests can act as
+// different users (see tests/db/helpers.ts `setTestUser` — the two copies
+// are kept in sync by hand). Migrations must be written so they validate
+// against these stand-ins (see the `add-migration` skill).
 // RLS policies and functions are validated as SQL; auth-dependent paths are
 // verified against the real service when the owner connects one.
 //
@@ -408,7 +411,7 @@ async function main() {
       CREATE SCHEMA IF NOT EXISTS auth;
       CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
       CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
-        AS $$ SELECT '00000000-0000-0000-0000-000000000000'::uuid $$;
+        AS $$ SELECT COALESCE(NULLIF(current_setting('app.current_user_id', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid) $$;
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
