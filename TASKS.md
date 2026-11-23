@@ -623,7 +623,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the five tests including account deletion; if it passes, clear the NO ACTION [OPEN] tag. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-2 · Function: create_pending_approval (and shared helpers)
-**Depends on:** M3-1b, M2-4 · **Status:** [ ]
+**Depends on:** M3-1b, M2-4 · **Status:** [x]
 **Goal:** safely create a proposal, its snapshot, hash, expiry, and pending log.
 **Steps:** per DATABASE.md 5.2: expire an overdue open approval for the conversation (shared **internal helper**, no API grants, also appends the tool message via a shared internal message helper), else return `open_approval_exists`; compute expiry and hash in Postgres; insert approval and pending log in one transaction; catch `unique_violation` and return `open_approval_exists`; service_role only.
 **Done when:** applied; types generated.

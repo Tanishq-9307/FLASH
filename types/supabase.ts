@@ -505,20 +505,71 @@ export type Database = {
         }
         Returns: string
       }
+      create_pending_approval: {
+        Args: {
+          p_user_id: string | null
+          p_conversation_id: string | null
+          p_tool_call_id: string | null
+          p_tool: string | null
+          p_params: Json | null
+          p_ttl_seconds: number | null
+        }
+        Returns: { result_code: string; approval_id: string; log_id: string }[]
+      }
+      m3_append_tool_message: {
+        Args: {
+          p_user_id: string | null
+          p_conversation_id: string | null
+          p_tool_call_id: string | null
+          p_approval_id: string | null
+          p_tool_name: string | null
+          p_outcome: string | null
+          p_result: string | null
+        }
+        Returns: string
+      }
       m3_approval_immutable: {
         Args: {
         }
         Returns: unknown
+      }
+      m3_expire: {
+        Args: {
+          p_user_id: string | null
+          p_approval_id: string | null
+        }
+        Returns: boolean
       }
       m3_guard_conversation_delete: {
         Args: {
         }
         Returns: unknown
       }
+      m3_is_approval_tool: {
+        Args: {
+          p_tool: string | null
+        }
+        Returns: boolean
+      }
       m3_log_immutable: {
         Args: {
         }
         Returns: unknown
+      }
+      m3_params_hash: {
+        Args: {
+          p_params: Json | null
+        }
+        Returns: string
+      }
+      m3_settle: {
+        Args: {
+          p_user_id: string | null
+          p_approval_id: string | null
+          p_execution_status: string | null
+          p_result_payload: Json | null
+        }
+        Returns: undefined
       }
       refund_api_call: {
         Args: {
