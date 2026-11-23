@@ -16,7 +16,7 @@
 5. **Security tables are read-only for clients.** `api_usage`, `tool_approvals`, and `action_logs` allow the client `SELECT` only. All writes go through functions (Section 5).
 6. **Trustworthy history.** The model reads conversation history, so history must not be forgeable. A client may insert only plain user messages (`role = 'user'`, `parts IS NULL`, `tool_call_id IS NULL`) and may never update a message. Assistant, system, and tool messages are written only by `append_message` or by the approval functions.
 7. **Audit persistence.** Deleting a conversation or a task never deletes `tool_approvals` or `action_logs`.
-8. Postgres 15 or later is required. The FLASH build validates SQL locally with PGlite; its PostgreSQL version is recorded in M2-0. Any production project is checked with `SELECT version()` when it is created.
+8. Postgres 15 or later is required. The FLASH build validates SQL locally with PGlite; its PostgreSQL version is 17.5 (recorded in M2-0, 2026-11-23). Any production project is checked with `SELECT version()` when it is created.
 
 ---
 
@@ -78,7 +78,7 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 ### 3.8 `tool_approvals` (M3)
 - Columns: `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, `user_id` (FK, cascade), `conversation_id uuid` (nullable), `tool_call_id text NOT NULL`, `tool_name text NOT NULL`, `parameters jsonb NOT NULL`, `parameters_hash text NOT NULL`, `status text NOT NULL DEFAULT 'pending'`, `retry_count int NOT NULL DEFAULT 0`, `expires_at timestamptz NOT NULL`, `approved_at`, `consumed_at`, `outcome_delivered_at` (all nullable `timestamptz`), `created_at timestamptz NOT NULL DEFAULT now()`.
 - CHECKs: status in (`pending`,`approved`,`consumed`,`rejected`,`expired`,`failed`); `retry_count BETWEEN 0 AND 3`; length limits on `tool_name` (64) and `tool_call_id` (128); `pg_column_size(parameters) <= 16384` [PROPOSED]; `status <> 'consumed' OR consumed_at IS NOT NULL`.
-- Constraints: `UNIQUE (id, user_id)`; `FOREIGN KEY (conversation_id, user_id) REFERENCES conversations (id, user_id) ON DELETE SET NULL (conversation_id)` (Postgres 15+; verified on dev, 17.11, in M2-0).
+- Constraints: `UNIQUE (id, user_id)`; `FOREIGN KEY (conversation_id, user_id) REFERENCES conversations (id, user_id) ON DELETE SET NULL (conversation_id)` (Postgres 15+; verified on dev, PGlite 17.5, in M2-0).
 - Indexes: `(user_id, status)`; partial unique `idx_one_open_approval ON (conversation_id) WHERE status IN ('pending','approved')`.
 - **Immutability trigger (BEFORE UPDATE):** `user_id`, `tool_name`, `tool_call_id`, `parameters`, `parameters_hash`, `expires_at`, `created_at` can never change. `conversation_id` may change only to NULL, because the foreign-key action on conversation delete performs that update and must not be blocked. Added in M3-1b: a final status (`consumed`, `rejected`, `expired`, `failed`) never changes again, and `outcome_delivered_at` is set once.
 - RLS: SELECT only.
@@ -254,7 +254,7 @@ Any internal helper (for example the shared expiry logic) is not granted to any 
 
 ## 7. Open Items and Citations
 
-- Postgres 15 or later is required for `ON DELETE SET NULL (column)`. Source for the syntax: PostgreSQL 15.0 release notes, E.20.3.3: "Allow foreign key ON DELETE SET actions to affect only specified columns" (postgresql.org/docs/release/15.0, read 2026-11-07). The FLASH build validates SQL with PGlite; its version is recorded in M2-0. Production: confirm with `SELECT version()` when a production project is created.
+- Postgres 15 or later is required for `ON DELETE SET NULL (column)`. Source for the syntax: PostgreSQL 15.0 release notes, E.20.3.3: "Allow foreign key ON DELETE SET actions to affect only specified columns" (postgresql.org/docs/release/15.0, read 2026-11-07). The FLASH build validates SQL with PGlite; its version is 17.5 (recorded in M2-0, 2026-11-23). Production: confirm with `SELECT version()` when a production project is created.
 - Verified (M0-4, 2026-10-18): the Supabase free-plan database size limit is 500 MB per project. Above it the project goes read-only. Keep action-log volume well under it. Sources: supabase.com/pricing and supabase.com/docs/guides/platform/database-size.
 - [x] Supabase JWT expiry: default 3600 seconds (M1-0, TECH_STACK.md 3.2).
 - Resolved in M0-0: Next.js 16.4.1, interception file `proxy.ts` (TECH_STACK.md Section 2).

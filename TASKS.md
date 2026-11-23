@@ -416,7 +416,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 2: PERSISTENCE
 
 ### M2-0 · Decision gate: Postgres version
-**Depends on:** M1-11 · **Status:** [ ]
+**Depends on:** M1-11 · **Status:** [x]
 **Goal:** confirm `ON DELETE SET NULL (column)` is supported.
 **Steps:** run `SELECT version();` on dev and production; confirm 15 or later; cite the Postgres release notes for the syntax.
 **Done when:** version recorded; [OPEN] tags removed in DATABASE.md Sections 1 (item 8), 3.8, and 7.
