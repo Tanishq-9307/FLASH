@@ -812,7 +812,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the four mocked tests. Run the checkpoint routine.
 
 ### M3-19 · Server Actions: approve, reject, execute
-**Depends on:** M3-18, M3-7 to M3-13 · **Status:** [ ] code done 2026-11-07; tests with fakes pass, live check after SQL
+**Depends on:** M3-18, M3-7 to M3-13 · **Status:** [x]
 **Goal:** the browser's only path to approving and executing.
 **Steps:** `rejectAction(approvalId)` and `executeAction(approvalId)`: `getUser()`, Zod-validate the ID, call `reject_action` or `approve_action` then `execute_approved_action` through the user-scoped client; map result codes to generic client errors; call `record_claim_failure` (service role) for refused claims and `record_execution_failure` (service role) after `tool_error`; return a result telling the browser whether to resume (final state reached). The client never supplies parameters or outcomes.
 **Tests:** each result code maps correctly; refused claims write an audit row; tool_error increments the counter; third failure returns resume; unauthenticated call refused.
