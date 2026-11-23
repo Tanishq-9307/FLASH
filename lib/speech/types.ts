@@ -24,6 +24,14 @@ export interface SpeechInputError {
   message: string;
 }
 
+// Clip limits (M4-0 decision): 60 seconds recorded in the browser, 2 MB
+// accepted by the server, minimum 1 KB. One source of truth for the
+// browser input (lib/speech/input.ts) and the server route
+// (app/api/speech/transcribe/route.ts).
+export const MAX_CLIP_SECONDS = 60;
+export const MIN_CLIP_BYTES = 1024;
+export const MAX_CLIP_BYTES = 2 * 1024 * 1024;
+
 export interface SpeechInputEvents {
   onTranscript?: (text: string) => void;
   onStateChange?: (state: SpeechInputState) => void;

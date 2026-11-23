@@ -16,9 +16,7 @@ import type {
   SpeechInputEvents,
   SpeechInputState,
 } from "./types";
-
-export const MAX_CLIP_SECONDS = 60;
-export const MIN_CLIP_BYTES = 1024;
+import { MAX_CLIP_SECONDS } from "./types";
 
 /** Turns a recorded clip into text. Implemented by M4-2 (the server route). */
 export type TranscribeFn = (blob: Blob) => Promise<string>;
