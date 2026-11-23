@@ -708,7 +708,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Section 5.6 and DATABASE.md Sections 3.7 and 5.3. Write one migration with a plain-language header adding the hardcoded save_memory branch and the three tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-10 · execute_approved_action (4 of 4): rollback verification
-**Depends on:** M3-9 · **Status:** [ ]
+**Depends on:** M3-9 · **Status:** [x]
 **Goal:** prove that a failed write leaves nothing behind.
 **Steps:** force a failure in each real branch (`create_task` and `save_memory`, for example with a CHECK violation); confirm the exception block rolls back the claim, the write, the log update, and the message; confirm errors returned to the caller are sanitised (no SQL text or internals).
 **Done when:** forced failures in both branches leave status `approved`, `retry_count` unchanged, no row written, no log or message change, and code `tool_error`.
