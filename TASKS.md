@@ -234,7 +234,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M1-1b · Optional: TOTP two-factor login
-**Depends on:** M1-1 and M1-0 finding that TOTP is available · **Status:** [ ] (skip if unavailable)
+**Depends on:** M1-1 and M1-0 finding that TOTP is available · **Status:** [x] (skipped — MFA off per M1-0 owner decision, 2026-11-23)
 **Goal:** a stolen password or cookie alone is not enough.
 **Steps:** enroll TOTP for my account; add the challenge step to login; require the elevated assurance level for protected routes.
 **Done when:** login requires the code; a session without it is redirected.
@@ -246,7 +246,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Protected routes must require the elevated assurance level. Run the checkpoint routine.
 
 ### M1-2 · Proxy: session refresh, redirects, CSP (report-only)
-**Depends on:** M1-1 · **Status:** [ ]
+**Depends on:** M1-1 · **Status:** [x]
 **Goal:** sessions refresh, unauthenticated users go to `/login`, CSP is in report-only mode.
 **Steps:**
 - Create the interception file with the name from M0-0.
