@@ -752,7 +752,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Sections 4.4 and 7. Write one migration with a plain-language header for mark_outcome_delivered (atomic, final states only) with the three tests including ten parallel calls. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-14 · Database audit tests: grants, RLS, writes, retention
-**Depends on:** M3-2 to M3-13 · **Status:** [ ]
+**Depends on:** M3-2 to M3-13 · **Status:** [x]
 **Goal:** prove the whole function and privilege matrix.
 **Steps:** catalog test for all 12 functions: `anon` and `authenticated` cannot execute the nine service-role functions; `anon` cannot execute the three authenticated functions; RLS enabled on every table; client INSERT/UPDATE/DELETE on security tables blocked; default privileges prevent new tables and functions from inheriting broad grants; account deletion cascade works; `search_path` is fixed on every SECURITY DEFINER function.
 **Done when:** suite green.
