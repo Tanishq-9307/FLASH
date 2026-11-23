@@ -201,7 +201,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 1: AUTH, RATE LIMIT, CHAT
 
 ### M1-0 · Decision gate: signups, JWT, model, MFA
-**Depends on:** M0-7 · **Status:** [ ]
+**Depends on:** M0-7 · **Status:** [x]
 **Goal:** resolve auth and quota unknowns before writing logic.
 **Steps (mostly dashboard steps done by you):**
 - Disable public signups in Supabase Auth; create your single account manually.

@@ -41,7 +41,7 @@
 - Strict nonce-based Content Security Policy (Section 8).
 - Single-user system: public signups disabled.
 - Hard daily model-call cap, which limits what a stolen session can do.
-- Supabase JWT lifetime. The commonly cited default is 3600 seconds. [OPEN: confirm the current default and whether it is configurable on the free plan, citing Supabase docs.]
+- Supabase JWT lifetime: default 3600 seconds (1 hour). Recorded M1-0 (2026-11-07, owner screenshot): after the move to JWT signing keys the dashboard no longer shows an expiry field, so the project uses Supabase's default of 3600 seconds. Not verified as configurable on the free plan; the short default is acceptable. (See TECH_STACK.md §3.2.)
 - Residual risk: within the daily cap, a stolen session can approve actions.
 
 **RLS limits:** RLS filters database rows by owner. It does not stop application bugs, prompt injection, or a leaked service-role key. Authentication is checked in application code as well.
