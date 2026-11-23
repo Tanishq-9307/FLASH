@@ -788,7 +788,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write tests for enabled, disabled, delimiter, and cap. Run the checkpoint routine.
 
 ### M3-17 · Tool loop (1 of 2): read-only and invalid-argument paths
-**Depends on:** M3-16, M3-3 · **Status:** [ ] code done 2026-11-07; mocked tests pass, live check after keys + SQL
+**Depends on:** M3-16, M3-3 · **Status:** [x]
 **Goal:** the model can call `get_tasks` safely.
 **Steps:** multi-step loop with a depth counter (maximum 3 model calls per request); **every** model call passes the Model Gate (depth check, then `reserve_api_call`); a depth overrun aborts with a "Maximum reasoning depth reached" system message (via `append_message`); invalid arguments are returned to the model as an error result; read-only tools run with the user-scoped client, are logged via `log_read_only_action`, and their results are returned to the model; failures are reported honestly.
 **Tests (model mocked):** each model call reserves; depth 4 aborts; invalid args return an error result and no execution; read-only success and failure paths log correctly; cap reached mid-loop ends the turn with a clear message.

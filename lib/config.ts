@@ -25,3 +25,10 @@ export function usageDateToday(): string {
     day: "2-digit",
   }).format(new Date());
 }
+
+// Maximum model calls per request (ARCHITECTURE.md §6, PRD.md §6
+// [PROPOSED]): a chat request or a resume request may make at most
+// this many model calls. A fourth attempt aborts the request with a
+// "Maximum reasoning depth reached" system message. The counter
+// resets on each new user message or resume request.
+export const MAX_MODEL_CALLS_PER_REQUEST = 3;
