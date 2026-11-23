@@ -698,7 +698,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Sections 5.5 and 5.6 and DATABASE.md Section 5.3. Write one migration with a plain-language header adding the hardcoded create_task branch (validate, write, log succeeded, tool message) with the three tests. No dynamic SQL. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-9 · execute_approved_action (3 of 4): save_memory
-**Depends on:** M3-8 · **Status:** [ ]
+**Depends on:** M3-8 · **Status:** [x]
 **Goal:** approval-gated memory writes.
 **Steps:** hardcoded `save_memory` branch (length-checked fact); same log and message behaviour.
 **Tests:** memory saved only after approval; over-length fact fails cleanly; unknown tool still raises.
