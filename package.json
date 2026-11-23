@@ -39,7 +39,7 @@
     "dev": "next dev",
     "lint": "eslint",
     "start": "next start",
-    "test": "vitest run",
+    "test": "APP_ENV=dev vitest run",
     "gen:types": "node scripts/gen-types.mjs"
   },
   "version": "0.1.0"

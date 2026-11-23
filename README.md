@@ -28,6 +28,14 @@ npm run dev
 - Types: `npm run gen:types`
 - Bundle check: `scripts/check-bundle.sh`
 
+## Tests
+
+- Run the full suite with `npm run test`. It sets `APP_ENV=dev`; running Vitest directly without that flag is refused by `tests/setup.ts` — the suite only ever runs against a local in-process PGlite database, never a live or production project. It also refuses if `NEXT_PUBLIC_SUPABASE_URL` points at a live Supabase project (any `*.supabase.co` URL).
+- Database tests live in `tests/db/` with helpers in `tests/db/helpers.ts`: each test file starts a fresh PGlite database, applies all migrations, and creates/deletes its test users through the admin-API helpers (`createTestUser` / `deleteTestUser`, which insert into the `auth.users` stand-in — there is no live dev project in this build).
+- After changing migrations, regenerate types with `npm run gen:types` (see "Database workflow" below).
+
+## Database workflow
+
 ## Database workflow
 
 Migrations live in `supabase/migrations/` (one per task, plain-language header each). Create one with `npx supabase migration new <name>` (the Supabase CLI is a devDependency; it is never linked to a remote project in this build). SQL is validated locally with PGlite: `npm run test` applies the migrations to a fresh in-process database (PGlite 0.3.9) and runs the checks; database tests run with `APP_ENV=dev`. After changing migrations, regenerate types with `npm run gen:types` (writes `types/supabase.ts` from the migration-validated schema — see `scripts/gen-types.mjs`; no remote project needed) and commit the result. No remote Supabase project is created by this build; if the owner creates one later, migrations go there at milestone gates only (`supabase db push`, with the owner's confirmation, then relink to dev in the same session), then types are regenerated and committed. Never put a database password on the command line or in any file.

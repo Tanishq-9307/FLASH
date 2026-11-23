@@ -296,7 +296,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Apply to dev and regenerate types. Run the checkpoint routine.
 
 ### M1-5 · Test harness and database security tests
-**Depends on:** M1-4 · **Status:** [ ]
+**Depends on:** M1-4 · **Status:** [x]
 **Goal:** the limiter is proven, not assumed.
 **Steps:**
 - Install Vitest (pinned); add `npm run test`.
