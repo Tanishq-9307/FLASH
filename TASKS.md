@@ -1067,7 +1067,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read PRD.md Section 5.8 and ARCHITECTURE.md Section 10. Build the upload route with size and magic-byte validation, owner-path storage, and generic errors, plus the four tests. Run the checkpoint routine.
 
 ### M5-3 · Extraction with page references
-**Depends on:** M5-2 · **Status:** [ ]
+**Depends on:** M5-2 · **Status:** [x]
 **Goal:** per-page text stored for citation.
 **Steps:** extract text page by page with the chosen library; store pages with page numbers; handle scanned PDFs (no text) with an honest "no extractable text" status; set `maxDuration` as needed.
 **Tests:** multi-page fixture maps text to correct pages; image-only PDF reports no text; extraction failure is reported honestly.

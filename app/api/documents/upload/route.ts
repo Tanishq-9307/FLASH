@@ -13,10 +13,14 @@
 //    must be the owner's, still 'processing', with no page count or error).
 //    If the insert fails, the uploaded file is removed again so no orphan
 //    file survives without a row.
-// 5. Return the document with status 'processing'. Extraction (M5-3) runs
-//    next and moves the row to 'ready', 'no_text' or 'failed' through
-//    save_document_extraction — the row is never 'ready' before extraction
-//    has actually run.
+// 5. Extract the text and record the outcome (M5-3): 'ready' with the
+//    pages, 'no_text' when no page carries text, 'failed' when extraction
+//    throws or times out — recorded through save_document_extraction, never
+//    by the client. If the save itself fails, the upload reports a generic
+//    500: the file and the row exist, but the upload did not finish cleanly
+//    (the row stays 'processing' and the owner can delete it from the
+//    Documents screen in M5-5).
+// 6. Return the document with its settled status.
 //
 // Errors are generic: the caller learns the file was rejected, never why
 // the server failed. Content is never executed or rendered server-side
@@ -24,6 +28,13 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  ExtractionError,
+  extractDocumentPages,
+  hasNoText,
+  preparePages,
+} from "@/lib/documents/extract";
 import {
   MAX_PDF_BYTES,
   documentTitle,
@@ -94,14 +105,53 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "document_create_failed" }, { status: 500 });
   }
 
+  // Extract the text and record the outcome (M5-3).
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let status: "ready" | "no_text" | "failed";
+  let pages: Array<{ page: number; text: string }> | null = null;
+  let errorCode: string | null = null;
+  try {
+    const { pages: extracted } = await extractDocumentPages(bytes);
+    if (hasNoText(extracted)) {
+      status = "no_text";
+    } else {
+      const prepared = preparePages(extracted);
+      pages = prepared.pages;
+      status = "ready";
+      if (prepared.truncated) errorCode = "page_truncated";
+    }
+  } catch (err) {
+    if (err instanceof ExtractionError && err.kind === "extraction_timeout") {
+      status = "failed";
+      errorCode = "extraction_timeout";
+    } else {
+      status = "failed";
+      errorCode = "extraction_failed";
+    }
+    console.error("Document extraction failed", err);
+  }
+
+  const admin = createAdminClient();
+  const { error: saveError } = await admin.rpc("save_document_extraction", {
+    p_user_id: user.id,
+    p_document_id: id,
+    p_status: status,
+    p_pages: pages,
+    p_error_code: errorCode,
+  });
+  if (saveError) {
+    console.error("Document extraction save failed", saveError);
+    return NextResponse.json({ error: "extraction_failed" }, { status: 500 });
+  }
+
   return NextResponse.json({
     document: {
       id,
       title,
       size_bytes: file.size,
-      status: "processing",
-      page_count: null,
-      error_code: null,
+      status,
+      page_count: status === "ready" ? pages!.length : null,
+      error_code: errorCode,
     },
   });
 }

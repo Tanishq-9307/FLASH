@@ -12,7 +12,7 @@ import {
   deleteTestUser,
   setTestUser,
 } from "./db/helpers";
-import { multiPagePdf } from "./fixtures/pdfs";
+import { corruptPdf, imageOnlyPdf, multiPagePdf } from "./fixtures/pdfs";
 
 // Hoisted holders: vi.mock factories run before imports, so shared mutable
 // state must live in vi.hoisted.
@@ -180,6 +180,36 @@ vi.mock("@/utils/supabase/server", () => ({
   },
 }));
 
+// "server-only" throws when imported outside a React Server Component
+// (M4-2): the admin module imports it, so it is mocked to a no-op here.
+// The production guard is unchanged (Next.js enforces it).
+vi.mock("server-only", () => ({}));
+
+vi.mock("@/utils/supabase/admin", () => ({
+  // The mocked admin client's rpc runs the real save_document_extraction
+  // function against the fresh PGlite database, so the extraction outcome
+  // is proven against real Postgres, not against the mock.
+  createAdminClient: () => ({
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      const db = testState.db!;
+      if (fn === "save_document_extraction") {
+        const r = await db.query(
+          "SELECT save_document_extraction($1, $2, $3, $4, $5)",
+          [
+            args.p_user_id,
+            args.p_document_id,
+            args.p_status,
+            args.p_pages == null ? null : JSON.stringify(args.p_pages),
+            args.p_error_code,
+          ],
+        );
+        return { data: r.rows, error: null };
+      }
+      throw new Error(`unexpected rpc ${fn}`);
+    },
+  }),
+}));
+
 import { POST, maxDuration } from "@/app/api/documents/upload/route";
 
 function uploadRequest(form: FormData): Request {
@@ -276,7 +306,7 @@ describe("POST /api/documents/upload", () => {
     expect(testState.files.size).toBe(0);
   });
 
-  it("valid PDF is stored under the owner path with a processing row", async () => {
+  it("valid PDF is stored under the owner path, extracted, and ready", async () => {
     const bytes = multiPagePdf();
     const res = await POST(uploadRequest(pdfForm(bytes, "quarterly-report.pdf")));
     expect(res.status).toBe(200);
@@ -291,8 +321,8 @@ describe("POST /api/documents/upload", () => {
     };
     expect(doc.title).toBe("quarterly-report");
     expect(doc.size_bytes).toBe(bytes.length);
-    expect(doc.status).toBe("processing");
-    expect(doc.page_count).toBeNull();
+    expect(doc.status).toBe("ready");
+    expect(doc.page_count).toBe(3);
     expect(doc.error_code).toBeNull();
 
     // The file is stored under <user_id>/<document_id>.pdf, bytes intact.
@@ -303,25 +333,77 @@ describe("POST /api/documents/upload", () => {
     expect(stored!.bytes).toEqual(bytes);
     expect(testState.files.size).toBe(1);
 
-    // The row matches: owner, path, size, still processing.
+    // The row matches: owner, path, size, ready with 3 pages.
     const rows = await db.query<{
       user_id: string;
       title: string;
       storage_path: string;
       size_bytes: number;
       status: string;
-    }>("SELECT user_id, title, storage_path, size_bytes, status FROM documents WHERE id = $1", [
-      doc.id,
-    ]);
+      page_count: number;
+    }>(
+      "SELECT user_id, title, storage_path, size_bytes, status, page_count FROM documents WHERE id = $1",
+      [doc.id],
+    );
     expect(rows.rows).toEqual([
       {
         user_id: userId,
         title: "quarterly-report",
         storage_path: storedPath,
         size_bytes: bytes.length,
-        status: "processing",
+        status: "ready",
+        page_count: 3,
       },
     ]);
+
+    // The pages are stored with their page numbers and text.
+    const pages = await db.query<{ page_number: number; content: string }>(
+      "SELECT page_number, content FROM document_pages WHERE document_id = $1 ORDER BY page_number",
+      [doc.id],
+    );
+    expect(pages.rows).toHaveLength(3);
+    expect(pages.rows[0].content).toContain("budget is five thousand rupees");
+    expect(pages.rows[1].content).toContain("Travel costs are capped");
+    expect(pages.rows[2].content).toContain("deadline is the thirtieth");
+  });
+
+  it("image-only PDF uploads and settles as no_text with no pages", async () => {
+    const bytes = imageOnlyPdf();
+    const res = await POST(uploadRequest(pdfForm(bytes, "scan.pdf")));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("no_text");
+    expect(body.document.page_count).toBeNull();
+    expect(body.document.error_code).toBeNull();
+    const rows = await db.query<{ status: string }>(
+      "SELECT status FROM documents WHERE id = $1",
+      [body.document.id],
+    );
+    expect(rows.rows).toEqual([{ status: "no_text" }]);
+    const pages = await db.query(
+      "SELECT page_number FROM document_pages WHERE document_id = $1",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(0);
+  });
+
+  it("corrupt PDF uploads and settles as failed, honestly", async () => {
+    const bytes = corruptPdf();
+    const res = await POST(uploadRequest(pdfForm(bytes, "broken.pdf")));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("failed");
+    expect(body.document.error_code).toBe("extraction_failed");
+    const rows = await db.query<{ status: string; error_code: string }>(
+      "SELECT status, error_code FROM documents WHERE id = $1",
+      [body.document.id],
+    );
+    expect(rows.rows).toEqual([{ status: "failed", error_code: "extraction_failed" }]);
+    const pages = await db.query(
+      "SELECT page_number FROM document_pages WHERE document_id = $1",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(0);
   });
 
   it("title form field wins over the filename", async () => {
