@@ -35,6 +35,9 @@ next-env.d.ts
 supabase/.temp
 supabase/.branches
 
+# PGlite local data (if ever used on disk; gen:types and tests use in-memory)
+.pglite/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

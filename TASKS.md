@@ -131,7 +131,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M0-4 · Supabase CLI and dev workflow
-**Depends on:** M0-2 · **Status:** [~]
+**Depends on:** M0-2 · **Status:** [x]
 **Goal:** the CLI is linked to the dev database and type generation works.
 **Steps:**
 - Create the Supabase project(s) in the dashboard (dev, and later production) or start the local stack.
@@ -150,7 +150,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Document the workflow in README.md. Run the checkpoint routine.
 
 ### M0-5 · Vercel deployment and execution limits
-**Depends on:** M0-4 · **Status:** [ ]
+**Depends on:** M0-4 · **Status:** [~]
 **Goal:** the scaffold is live and long-running routes are configured on purpose.
 **Steps:**
 - Push to the private GitHub repo; import into Vercel.

@@ -30,7 +30,7 @@ npm run dev
 
 ## Database workflow
 
-Migrations live in `supabase/migrations/` (one per task, plain-language header each). SQL is validated locally with PGlite; database tests run against PGlite with `APP_ENV=dev`. No remote Supabase project is created by this build; if the owner creates one later, migrations go there at milestone gates only, then types are regenerated and committed.
+Migrations live in `supabase/migrations/` (one per task, plain-language header each). Create one with `npx supabase migration new <name>` (the Supabase CLI is a devDependency; it is never linked to a remote project in this build). SQL is validated locally with PGlite: `npm run test` applies the migrations to a fresh in-process database (PGlite 0.3.9) and runs the checks; database tests run with `APP_ENV=dev`. After changing migrations, regenerate types with `npm run gen:types` (writes `types/supabase.ts` from the migration-validated schema — see `scripts/gen-types.mjs`; no remote project needed) and commit the result. No remote Supabase project is created by this build; if the owner creates one later, migrations go there at milestone gates only (`supabase db push`, with the owner's confirmation, then relink to dev in the same session), then types are regenerated and committed. Never put a database password on the command line or in any file.
 
 ## Secret Rotation Rule
 

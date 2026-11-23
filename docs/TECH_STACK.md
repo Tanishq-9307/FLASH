@@ -47,6 +47,7 @@ All facts below were read on 2026-10-16. **Pinning rule:** exact versions in `pa
 | Vitest | **5.0.5** | npm registry (`node ^22.12.0 \|\| ^24.0.0 \|\| >=26.0.0`). Read 2026-10-16 |
 | `@types/node` | **24.19.2** (matches the Node major) | npm registry. Read 2026-10-16 |
 | `@types/react`, `@types/react-dom` | **19.3.0** (match React 19.3) | npm registry (latest 19.3.0). Added in M0-2: the scaffold needs them and M0-0 had not pinned them. Read 2026-10-17 |
+| PGlite (`@electric-sql/pglite`) | **0.3.9** | npm registry. In-process PostgreSQL for local migration validation and type generation (no remote project, no Docker). Decided in M0-4. Read 2026-11-23 |
 
 **Minimum Node, and why 24:** Next.js 16 needs Node 20.9 or later. AI SDK 7, supabase-js 2.118 and Vitest 5 need Node 22 or later. Node 24 is the newest LTS that Vercel offers, and it satisfies all of them. Node 26 becomes LTS on 2026-10-28, but Vercel does not offer it yet. This machine currently has Node 22.23.3, and nvm is installed: run `nvm install 24` before M0-2.
 
@@ -68,7 +69,7 @@ Facts confirmed in official documentation (read 2026-10-16):
 **Choice:** local PGlite validation, not a remote Supabase project and not local Docker.
 - SQL migrations are validated locally with PGlite (PostgreSQL compiled to WebAssembly, run in-process by Vitest). Every migration is applied to a fresh PGlite database and the task's checks run against it. No remote Supabase project is created by this build, and no production database exists yet.
 - The Supabase CLI is a project devDependency, run with `npx supabase`. It is used for `migration new`, `migration list`, and type generation (see M0-4). It is never linked to a remote project during this build.
-- Type generation: `npm run gen:types` (implementation decided in M0-4; it must produce `types/supabase.ts` from the migration-validated schema without a remote project).
+- Type generation: `npm run gen:types` runs `scripts/gen-types.mjs` (decided in M0-4): it starts an in-process PGlite database (@electric-sql/pglite 0.3.9), applies every migration in `supabase/migrations/` in order, and introspects the schema to emit `types/supabase.ts` in the supabase-js format. PGlite has no TCP server, so the CLI's `gen types --db-url` cannot be used. PGlite has no `auth` schema, so the script creates minimal stand-ins (`auth.users` table, `auth.uid()` stub) before applying migrations. Verified in M0-4: generates a valid empty `Database` type with zero migrations, and correct table/enum/function types from a sample migration (see `tests/gen-types.test.ts`).
 - Test guard (TASKS.md Section 0.3): database tests refuse to run unless `APP_ENV=dev` is set **and** no production project ref is configured.
 
 **Rules:**
