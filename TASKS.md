@@ -1077,7 +1077,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read the extended DATABASE.md and TECH_STACK.md Section 3.1. Implement per-page extraction and storage with honest failure and no-text statuses, and fixture tests. Run the checkpoint routine.
 
 ### M5-4 · Evidence-cited Q&A
-**Depends on:** M5-3, M3-17 · **Status:** [ ]
+**Depends on:** M5-3, M3-17 · **Status:** [x] (built against the chat route directly — the M3-17 tool-loop wiring is pending for the M3 build; see PROGRESS.md)
 **Goal:** answers grounded in the document.
 **Steps:** a read-only tool that retrieves relevant pages (full-text search over `document_pages`); page text enters the prompt inside delimited untrusted-data blocks; the answer format requires citations with page numbers; the UI renders citations that link to the stored page text; unsupported questions get an explicit "the document does not say".
 **Tests:** citation points to a real page containing the cited text; unsupported question is declined; missing citation is flagged and not presented as sourced.
