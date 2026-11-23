@@ -9,6 +9,16 @@
 // TWO messages — the partial reply, then a system line that says "Reply
 // interrupted", so the user can see the reply never finished instead of
 // wondering why it stops mid-sentence.
+//
+// Tool rows (M3-20) become SYSTEM messages: the database stores the
+// outcome of an approved action as a tool-role row, but the AI SDK's
+// convertToModelMessages only accepts system, user, and assistant
+// roles — a tool-role message throws "Unsupported role: tool", which
+// would break the next chat turn after any approval reaches a final
+// state. The content is a human-readable outcome sentence ("The task
+// was created"), so as a system message the model gets the same
+// context and the screen shows it as a centred notice. The database
+// row itself keeps role "tool" — only this conversion changes.
 import type { UIMessage } from "ai";
 
 export type DbMessageRow = {
@@ -31,7 +41,7 @@ export function dbMessagesToUIMessages(rows: DbMessageRow[]): UIMessage[] {
   for (const row of rows) {
     messages.push({
       id: row.id,
-      role: row.role as UIMessage["role"],
+      role: row.role === "tool" ? "system" : (row.role as UIMessage["role"]),
       parts: [{ type: "text", text: row.content }],
     });
     if (row.role === "assistant" && isIncomplete(row.parts)) {

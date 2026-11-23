@@ -455,6 +455,15 @@ export async function POST(request: Request) {
             tools: toModelTools(),
             stopWhen: stepCountIs(1),
             abortSignal: request.signal,
+            // The history can contain system messages (tool outcomes
+            // rendered as system by dbMessagesToUIMessages, "Reply
+            // interrupted" lines, cap notices). They are written by
+            // this server into the database — trusted, never
+            // client-supplied — so the SDK's opt-in for system
+            // messages in `messages` is safe here. Without it, the
+            // next turn after any system message is persisted throws
+            // InvalidPromptError.
+            allowSystemInMessages: true,
           });
         } catch {
           // streamText threw before dispatch — the provider was never

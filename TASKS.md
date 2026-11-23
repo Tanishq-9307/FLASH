@@ -824,7 +824,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add tests for each code. Run the checkpoint routine.
 
 ### M3-20 · Resume route
-**Depends on:** M3-19, M2-6 · **Status:** [ ] code done 2026-11-07; mocked tests pass, live check after SQL
+**Depends on:** M3-19, M2-6 · **Status:** [x]
 **Goal:** deliver each outcome to the model exactly once, honestly.
 **Steps:** `POST /api/chat/resume` with only `approval_id`: `getUser()` and ownership; `expire_stale_approval`; `mark_outcome_delivered` (no row means 200 and nothing to do); read the real outcome from `action_logs` and approval status; pass the Model Gate; build the follow-up from the database outcome; stream, then persist the follow-up reply with `append_message`. If the Gate refuses or the model fails, return the real outcome with an honest system message generated from the actual state and persist that notice too through `append_message` (role `system`), so a refresh shows the same history.
 **Tests (model mocked):** not-final approval is a no-op; delivered once under parallel calls; success, failed, rejected, and expired outcomes produce correct follow-ups; cap reached returns the real outcome and no model reply; model failure returns the real outcome; the follow-up and any system notice are persisted (they survive a refresh).
