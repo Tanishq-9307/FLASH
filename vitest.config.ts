@@ -14,8 +14,10 @@ export default defineConfig({
   test: {
     environment: "node",
     // PGlite starts a real PostgreSQL per test file; on this small VM that
-    // can exceed Vitest's 5 s default when files run in parallel.
+    // can exceed Vitest's 5 s test default and 10 s hook default when files
+    // run in parallel.
     testTimeout: 30000,
+    hookTimeout: 30000,
     // Dev-only guard (M1-5): tests/setup.ts throws unless APP_ENV=dev.
     setupFiles: ["./tests/setup.ts"],
   },

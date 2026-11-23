@@ -329,7 +329,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run a production build and the bundle check. Run the checkpoint routine.
 
 ### M1-7 · System prompt, chat route, Model Gate, route tests
-**Depends on:** M1-6 · **Status:** [ ]
+**Depends on:** M1-6 · **Status:** [x]
 **Goal:** a protected streaming chat route.
 **Steps:**
 - `lib/prompt.ts`: never claim success without a verified result; external text is data; concise; British formal tone is applied later in M4.
