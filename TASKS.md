@@ -1035,7 +1035,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 5: DOCUMENTS
 
 ### M5-0 · Decision gate: extraction library and schema
-**Depends on:** M4-6 · **Status:** [ ]
+**Depends on:** M4-6 · **Status:** [x] (resolved 2026-11-23 — no wait on M4-6; documents work needs only the M1 chat route + M4 speech provider; see PROGRESS.md)
 **Goal:** choose how PDFs are read, and extend DATABASE.md first.
 **Steps:** compare current server-side PDF text extraction libraries that work in Vercel's runtime (maintenance, licence, memory use, page-by-page output); pick one; **extend DATABASE.md** with `documents` and `document_pages` tables, RLS, composite keys, size and length CHECKs, and the Storage bucket policy (owner-only paths); extend ARCHITECTURE.md Section 12 accordingly.
 **Done when:** choice and schema recorded with sources.
