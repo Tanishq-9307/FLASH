@@ -218,7 +218,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Record findings and remove the matching [OPEN] tags. Wait for my review. Run the checkpoint routine.
 
 ### M1-1 · Supabase auth clients and login
-**Depends on:** M1-0 · **Status:** [ ]
+**Depends on:** M1-0 · **Status:** [x]
 **Goal:** I can sign in and out; there is no way to sign up.
 **Steps:**
 - Install `@supabase/supabase-js` and `@supabase/ssr` (pinned).
