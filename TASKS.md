@@ -905,7 +905,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add the component tests. Run the checkpoint routine.
 
 ### M3-25 · Enforce the CSP
-**Depends on:** M3-21b, M3-22, M3-23, M3-24, M3-24b · **Status:** [ ] enforced 2026-11-07 on a local production build (0 violations on every screen); confirm on the Vercel preview
+**Depends on:** M3-21b, M3-22, M3-23, M3-24, M3-24b · **Status:** [x]
 **Goal:** move from report-only to enforced.
 **Steps:** review violations seen in the browser console across all screens; fix legitimate ones; switch the header to `Content-Security-Policy`; keep `unsafe-eval` development-only; re-test every screen.
 **Done when:** no violations on normal use; enforced header present in production build.

@@ -1,12 +1,18 @@
-// Content-Security-Policy (report-only) builder (M1-2, ARCHITECTURE.md §8).
+// Content-Security-Policy builder (M1-2, M3-25, ARCHITECTURE.md §8).
 // Nonce-based; `unsafe-eval` is added to script-src in development only
 // (Next.js dev tooling needs it); `connect-src` includes the Supabase
-// project URL so the browser client can reach Auth. The policy is
-// report-only in M1: it never blocks, it only reports. It is switched to
-// enforced before the M3 gate, after violations are reviewed.
-// The nonce is generated per request in proxy.ts; this module only builds
-// the header value, so it is a pure function and directly testable.
-export function buildCspReportOnly(
+// project URL so the browser client can reach Auth.
+//
+// Enforced since M3-25 (was report-only in M1): the proxy sets this
+// header as `Content-Security-Policy` on the response AND on the
+// request headers, so Next.js itself can read the nonce back out of
+// the request (it parses `script-src` for a 'nonce-…' source and
+// applies it to its own scripts — without that step, enforcement
+// would block the framework's inline scripts and break hydration).
+// The nonce is generated per request in proxy.ts; this module only
+// builds the header value, so it is a pure function and directly
+// testable.
+export function buildCsp(
   nonce: string,
   opts: { supabaseUrl?: string; isDev?: boolean } = {},
 ): string {
