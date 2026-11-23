@@ -586,7 +586,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 3: MEMORY, TOOLS, APPROVALS (THE v0.1 DEMO)
 
 ### M3-0 · Decision gate: privacy
-**Depends on:** M2-10 · **Status:** [ ]
+**Depends on:** M2-10 · **Status:** [x] (recorded without waiting on M2-10 — the M2-10 gate is deferred with the UI pass, and the privacy decision only needs the owner's choice, already made 2026-11-07 and carried into the copied docs, 2026-11-23)
 **Goal:** decide what data may reach a free-tier model.
 **Steps:** confirm Google's current terms for free-tier prompts on the official page; choose one: accept the free tier with non-sensitive memories only plus a warning on the Memory screen (preferred), paid tier, or another provider; record the decision.
 **Done when:** the decision is recorded and [OPEN] tags are updated in PRD.md Section 9, TECH_STACK.md 3.3, ARCHITECTURE.md Section 13.
