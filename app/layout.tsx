@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Barlow, JetBrains_Mono, Rajdhani } from "next/font/google";
 import "./globals.css";
+import Header from "@/components/header";
 import { MobileTabBar, NavRail } from "@/components/nav";
+import { createClient } from "@/utils/supabase/server";
 
 // DESIGN.md Section 4 (owner decision 2026-11-07): Barlow for body text,
 // Rajdhani for titles/labels/logo/greeting, JetBrains Mono for timestamps,
@@ -32,17 +34,26 @@ export const metadata: Metadata = {
   description: "FLASH — private, single-user personal AI assistant",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html
       lang="en"
       className={`${barlow.variable} ${rajdhani.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       {/* Navigation shell (M1-8): the icon rail is fixed on desktop, the tab
-          bar fixed at the bottom on mobile; the content clears both. */}
+          bar fixed at the bottom on mobile; the content clears both. The
+          header (M1-9) sits above the page content. */}
       <body className="min-h-full">
         <NavRail />
-        <div className="pb-16 md:pb-0 md:pl-[88px]">{children}</div>
+        <div className="pb-16 md:pb-0 md:pl-[88px]">
+          <Header userEmail={user?.email ?? null} />
+          {children}
+        </div>
         <MobileTabBar />
       </body>
     </html>

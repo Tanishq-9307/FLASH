@@ -158,11 +158,6 @@ export function NavRail() {
       aria-label="Primary"
       className="fixed top-0 bottom-0 left-0 z-40 hidden w-[88px] flex-col items-stretch border-r border-border bg-surface md:flex"
     >
-      <div className="flex h-16 items-center justify-center border-b border-border">
-        <span className="font-display text-lg font-bold tracking-widest text-text-primary">
-          FLASH
-        </span>
-      </div>
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.href}

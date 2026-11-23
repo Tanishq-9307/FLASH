@@ -361,7 +361,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M1-9 · Shell: header, status chip, grid
-**Depends on:** M1-6, M1-8 · **Status:** [ ]
+**Depends on:** M1-6, M1-8 · **Status:** [x]
 **Goal:** header with a truthful status chip.
 **Steps:** header per DESIGN.md 5.3 (logo, chip, clock, account menu with sign out; the command bar is built in M1-10b); the logo is an SVG that I create or choose with rights confirmed (no film branding), or a plain text wordmark placeholder, and the logo [OPEN] tag in DESIGN.md Section 11 is updated; chip polls `/api/health` periodically and shows Online, Offline (fetch failed) or Limit reached, each with icon and text; faint background grid removed on mobile and under reduced motion.
 **Done when:** forcing each state (mock the response in a test) changes the chip correctly.
