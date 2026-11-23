@@ -656,7 +656,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Section 5.4 and DATABASE.md Section 5.1. Write one migration with a plain-language header for approve_action using the exact atomic update, authenticated-only grants, and the five tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-5 · Function: reject_action (Cancel)
-**Depends on:** M3-4 · **Status:** [ ]
+**Depends on:** M3-4 · **Status:** [x]
 **Goal:** the owner can cancel from `pending` or `approved`.
 **Steps:** atomic update; marks the log `not_executed`; appends the tool message via the helper; authenticated only.
 **Tests:** works from pending and approved; refused when expired, consumed, or another user's; log and message written; anon denied.

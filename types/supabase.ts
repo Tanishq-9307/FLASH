@@ -596,6 +596,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      reject_action: {
+        Args: {
+          p_approval_id: string | null
+        }
+        Returns: { approval_id: string; approval_status: string }[]
+      }
       reserve_api_call: {
         Args: {
           p_user_id: string | null
