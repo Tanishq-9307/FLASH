@@ -721,7 +721,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M3-11 · Function: record_execution_failure
-**Depends on:** M3-10 · **Status:** [ ]
+**Depends on:** M3-10 · **Status:** [x]
 **Goal:** count failures outside the rolled-back transaction.
 **Steps:** service_role only; only for an `approved` approval owned by `p_user_id`; increments `retry_count`; appends the sanitised error to the log; at 3: status `failed`, log `failed`, tool message appended, return a flag so the server resumes.
 **Tests:** one failure leaves `approved` with count 1; third failure sets `failed` and returns the flag; later execution returns `exhausted`; anon and authenticated denied.

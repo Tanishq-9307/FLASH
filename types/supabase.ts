@@ -602,6 +602,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_execution_failure: {
+        Args: {
+          p_approval_id: string | null
+          p_user_id: string | null
+          p_error: Json | null
+        }
+        Returns: { retry_count: number; failed: boolean }[]
+      }
       refund_api_call: {
         Args: {
           p_user_id: string | null
