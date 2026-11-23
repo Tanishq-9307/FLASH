@@ -118,7 +118,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M0-3 · Agent rules and skills
-**Depends on:** M0-2 and the CLAUDE.md and skill files (now produced) · **Status:** [ ]
+**Depends on:** M0-2 and the CLAUDE.md and skill files (now produced) · **Status:** [x]
 **Goal:** the coding agent follows the standing rules automatically.
 **Steps:** place CLAUDE.md at the repo root; place the five skills under `.claude/skills/<name>/SKILL.md` (new-task-session, add-migration, add-tool, security-review, milestone-gate) with their frontmatter intact.
 **Done when:** `/context` lists CLAUDE.md under Memory files, and typing `/` shows the five skills.
@@ -131,7 +131,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M0-4 · Supabase CLI and dev workflow
-**Depends on:** M0-2 · **Status:** [ ]
+**Depends on:** M0-2 · **Status:** [~]
 **Goal:** the CLI is linked to the dev database and type generation works.
 **Steps:**
 - Create the Supabase project(s) in the dashboard (dev, and later production) or start the local stack.
