@@ -1057,7 +1057,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read the extended DATABASE.md (documents) and Section 4. Write one migration with a plain-language header for the tables, RLS, private bucket policy, and grants, with isolation tests for rows and files. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M5-2 · Secure upload
-**Depends on:** M5-1 · **Status:** [ ]
+**Depends on:** M5-1 · **Status:** [x]
 **Goal:** accept only safe PDFs.
 **Steps:** authenticated upload endpoint; check size limit and real file type (magic bytes, not just extension); store under the user's path; reject everything else with generic errors; never execute or render content server-side beyond extraction.
 **Tests:** oversize rejected; non-PDF renamed `.pdf` rejected; valid PDF stored under owner path; unauthenticated rejected.
