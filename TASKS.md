@@ -465,7 +465,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Show an EXPLAIN proving the index is used. Run the checkpoint routine.
 
 ### M2-4 · Migration: append_message
-**Depends on:** M2-3 · **Status:** [ ]
+**Depends on:** M2-3 · **Status:** [x]
 **Goal:** the only way to write assistant and system messages.
 **Steps:** `append_message(uuid, uuid, text, text, jsonb, text)` per DATABASE.md 5.1: roles `assistant` and `system` only; `SECURITY DEFINER`; fixed search_path; REVOKE from PUBLIC, anon, authenticated; GRANT to service_role.
 **Done when:** applied; types generated.

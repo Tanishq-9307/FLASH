@@ -200,6 +200,17 @@ export type Database = {
     Views: {
     }
     Functions: {
+      append_message: {
+        Args: {
+          p_user_id: string
+          p_conversation_id: string
+          p_role: string
+          p_content: string
+          p_parts: Json
+          p_tool_call_id: string
+        }
+        Returns: string
+      }
       refund_api_call: {
         Args: {
           p_user_id: string
