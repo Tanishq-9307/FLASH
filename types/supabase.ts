@@ -56,6 +56,99 @@ export type Database = {
         Relationships: [
         ]
       }
+      document_pages: {
+        Row: {
+          document_id: string
+          user_id: string
+          page_number: number
+          content: string
+          search: string | null
+        }
+        Insert: {
+          document_id: string
+          user_id?: string
+          page_number: number
+          content: string
+          search?: string | null
+        }
+        Update: {
+          document_id?: string
+          user_id?: string
+          page_number?: number
+          content?: string
+          search?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_pages_document_fk",
+            columns: ["document_id"],
+            isOneToOne: false,
+            referencedRelation: "documents",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "document_pages_document_fk",
+            columns: ["document_id"],
+            isOneToOne: false,
+            referencedRelation: "documents",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "document_pages_document_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "documents",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "document_pages_document_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "documents",
+            referencedColumns: ["user_id"],
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          storage_path: string
+          size_bytes: number
+          status: string
+          page_count: number | null
+          error_code: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          title: string
+          storage_path: string
+          size_bytes: number
+          status?: string
+          page_count?: number | null
+          error_code?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          storage_path?: string
+          size_bytes?: number
+          status?: string
+          page_count?: number | null
+          error_code?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
       messages: {
         Row: {
           id: string
@@ -224,6 +317,16 @@ export type Database = {
           p_cap: number | null
         }
         Returns: { model_calls: number; usage_date: string }[]
+      }
+      save_document_extraction: {
+        Args: {
+          p_user_id: string | null
+          p_document_id: string | null
+          p_status: string | null
+          p_pages: Json | null
+          p_error_code: string | null
+        }
+        Returns: undefined
       }
       set_updated_at: {
         Args: {

@@ -429,6 +429,42 @@ async function main() {
         END IF;
       END $$;
     `);
+    // Storage stand-ins (M5-1): PGlite has no storage schema, so the
+    // migration's bucket insert and object policies validate against these
+    // minimal tables plus storage.foldername(). Kept in sync with
+    // tests/db/helpers.ts by hand; the migration itself stays spec-real.
+    await db.exec(`
+      CREATE SCHEMA IF NOT EXISTS storage;
+      CREATE TABLE IF NOT EXISTS storage.buckets (
+        id text PRIMARY KEY,
+        name text NOT NULL,
+        owner uuid,
+        public boolean NOT NULL DEFAULT false,
+        file_size_limit bigint,
+        allowed_mime_types text[]
+      );
+      CREATE TABLE IF NOT EXISTS storage.objects (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        bucket_id text NOT NULL,
+        name text NOT NULL,
+        owner uuid,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        last_accessed_at timestamptz NOT NULL DEFAULT now(),
+        metadata jsonb
+      );
+      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+      CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE sql IMMUTABLE
+        AS $$ SELECT string_to_array($1, '/') $$;
+      -- Hosted Supabase grants schema USAGE to the built-in roles;
+      -- PGlite grants nothing by default, so mirror the hosted grants.
+      GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+      -- Hosted Supabase grants the built-in roles table access on the
+      -- storage tables (the RLS policies decide what actually happens).
+      GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
+      GRANT SELECT ON storage.buckets TO authenticated;
+      GRANT ALL ON storage.objects, storage.buckets TO service_role;
+    `);
     for (const file of files) {
       const { readFile } = await import("node:fs/promises");
       const sql = await readFile(join(args.migrations, file), "utf8");

@@ -46,10 +46,48 @@ DO $$ BEGIN
 END $$;
 `;
 
+// Storage stand-ins (M5-1): minimal `storage.buckets` / `storage.objects`
+// tables plus `storage.foldername()`, so the M5-1 migration's bucket insert
+// and owner-folder object policies validate on PGlite. Mirrors
+// scripts/gen-types.mjs; kept in sync by hand.
+const STORAGE_STANDINS = `
+CREATE SCHEMA IF NOT EXISTS storage;
+CREATE TABLE IF NOT EXISTS storage.buckets (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  owner uuid,
+  public boolean NOT NULL DEFAULT false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+CREATE TABLE IF NOT EXISTS storage.objects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  bucket_id text NOT NULL,
+  name text NOT NULL,
+  owner uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_accessed_at timestamptz NOT NULL DEFAULT now(),
+  metadata jsonb
+);
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE sql IMMUTABLE
+  AS $$ SELECT string_to_array($1, '/') $$;
+-- Hosted Supabase grants schema USAGE to the built-in roles; PGlite grants
+-- nothing by default, so mirror the hosted grants.
+GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+-- Hosted Supabase grants the built-in roles table access on the storage
+-- tables (the RLS policies decide what actually happens).
+GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
+GRANT SELECT ON storage.buckets TO authenticated;
+GRANT ALL ON storage.objects, storage.buckets TO service_role;
+`;
+
 /** Fresh in-process dev database: stand-ins, roles, all migrations applied. */
 export async function createTestDb(): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(AUTH_STANDINS);
+  await db.exec(STORAGE_STANDINS);
   const dir = join(process.cwd(), "supabase", "migrations");
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
     await db.exec(readFileSync(join(dir, file), "utf8"));

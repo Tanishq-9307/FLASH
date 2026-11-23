@@ -1047,7 +1047,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Propose the choice and the new tables, RLS, and Storage policy in the same style as DATABASE.md; wait for my review. Run the checkpoint routine.
 
 ### M5-1 · Migration: documents and storage
-**Depends on:** M5-0 · **Status:** [ ]
+**Depends on:** M5-0 · **Status:** [x]
 **Goal:** schema and private bucket.
 **Steps:** migration per the M5-0 extension; private Storage bucket with owner-only policies; grants.
 **Tests:** A cannot read B's documents, pages, or files; anon cannot; client cannot write page rows directly.
