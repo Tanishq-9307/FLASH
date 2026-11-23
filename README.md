@@ -21,6 +21,7 @@ npm run dev
 ## Commands
 
 - Dev server: `npm run dev`
+- Production build: `npm run build`
 - Lint: `npm run lint`
 - Type check: `npx tsc --noEmit`
 - Tests: `npm run test`

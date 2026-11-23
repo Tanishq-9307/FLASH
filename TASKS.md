@@ -99,7 +99,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Never write a real-looking key to a file you keep. Run the checkpoint routine.
 
 ### M0-2 · Next.js scaffold, strict TypeScript, lint
-**Depends on:** M0-1 · **Status:** [ ]
+**Depends on:** M0-1 · **Status:** [x]
 **Goal:** a strict, linted Next.js app using the pinned versions.
 **Steps:**
 - Scaffold in a temporary folder and merge into the repo, so `README.md`, `.gitignore`, `docs/`, and `scripts/` are not overwritten (or confirm the scaffold tool's behaviour first). No `src/` directory; paths in this file use `app/` [PROPOSED]. Package manager: npm [PROPOSED].
