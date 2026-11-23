@@ -731,7 +731,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read ARCHITECTURE.md Sections 5.5, 5.7 and DATABASE.md Section 5.1. Write one migration with a plain-language header for record_execution_failure with the four tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-12 · Function: record_claim_failure
-**Depends on:** M3-7 · **Status:** [ ]
+**Depends on:** M3-7 · **Status:** [x]
 **Goal:** audit refused claims; make tampering terminal.
 **Steps:** service_role only; always insert a `not_executed` audit row with the reason in the payload; for `hash_mismatch` (tamper) it is also terminal: set the approval `failed`, settle the original pending log as `not_executed` with the tamper flag, append the tool message, and return a resume flag; other reasons add only the audit row (expiry and exhaustion are settled by their own functions).
 **Tests:** a hash mismatch fails the approval, settles the original log, appends the message, and flags tamper; other reasons add only the audit row; anon and authenticated denied.

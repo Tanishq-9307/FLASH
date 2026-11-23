@@ -602,6 +602,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_claim_failure: {
+        Args: {
+          p_approval_id: string | null
+          p_user_id: string | null
+          p_reason: string | null
+          p_is_tamper: boolean | null
+        }
+        Returns: { audit_log_id: string; resume: boolean }[]
+      }
       record_execution_failure: {
         Args: {
           p_approval_id: string | null
