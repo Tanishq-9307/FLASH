@@ -516,6 +516,18 @@ export type Database = {
         }
         Returns: { result_code: string; approval_id: string; log_id: string }[]
       }
+      log_read_only_action: {
+        Args: {
+          p_user_id: string | null
+          p_conversation_id: string | null
+          p_tool_call_id: string | null
+          p_tool: string | null
+          p_params: Json | null
+          p_status: string | null
+          p_result: Json | null
+        }
+        Returns: string
+      }
       m3_append_tool_message: {
         Args: {
           p_user_id: string | null

@@ -636,7 +636,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the five tests. Apply to dev and regenerate types. Run the checkpoint routine.
 
 ### M3-3 · Function: log_read_only_action
-**Depends on:** M3-1b · **Status:** [ ]
+**Depends on:** M3-1b · **Status:** [x]
 **Goal:** audit read-only tool calls.
 **Steps:** per DATABASE.md 5.1; `p_status` limited to succeeded or failed; `approval_id` stays null; service_role only.
 **Tests:** valid row created; invalid status rejected; anon and authenticated denied.
