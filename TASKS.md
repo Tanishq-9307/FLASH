@@ -507,7 +507,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add the four tests. Run the checkpoint routine.
 
 ### M2-7 · UI: conversations list
-**Depends on:** M2-6 · **Status:** [ ]
+**Depends on:** M2-6 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
 **Goal:** list, switch, rename, delete conversations.
 **Steps:** list ordered by `updated_at` (280px panel, collapsible, per DESIGN.md 5.1); Server Actions for rename and delete (each calls `getUser()`, validates input); empty and error states.
 **Done when:** switching loads history; delete removes the conversation.
@@ -519,7 +519,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Include empty and error states and action tests. Run the checkpoint routine.
 
 ### M2-8a · UI: tasks
-**Depends on:** M2-3 · **Status:** [ ]
+**Depends on:** M2-3 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
 **Goal:** I can manage tasks by hand.
 **Steps:** list with statuses and due dates; create, edit, complete, and delete through Server Actions (auth check, Zod limits equal to the database CHECKs); empty, loading, and error states (DESIGN.md 5.1).
 **Done when:** CRUD works and survives a refresh.
@@ -532,7 +532,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add validation and ownership tests. Run the checkpoint routine.
 
 ### M2-8b · UI: notes with full-text search
-**Depends on:** M2-3 · **Status:** [ ]
+**Depends on:** M2-3 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
 **Goal:** I can write and search notes.
 **Steps:** notes list with title and content; create, edit, delete through Server Actions with Zod limits equal to the database CHECKs; search through a Server Action using the same expression as the GIN index; empty, loading, and error states.
 **Done when:** CRUD works; search returns matching notes.
@@ -545,7 +545,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add validation and search tests. Run the checkpoint routine.
 
 ### M2-9a · UI: Overview layout and components
-**Depends on:** M2-8a, M2-8b, M1-9 · **Status:** [ ]
+**Depends on:** M2-8a, M2-8b, M1-9 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
 **Goal:** the mockup layout as reusable components.
 **Steps:** per DESIGN.md Sections 1, 2, 3.1, and 5 and the mockup: three-zone layout, panel frame with corner brackets, ring-gauge component, task and note list components, static orb placeholder, greeting, quick actions (New task, New note). Every component takes its data through props and handles normal, empty, and unavailable states. No mock data ships (test fixtures only). Panels that depend on M3 are not shown yet.
 **Done when:** the layout matches the mockup at 1280px and collapses per DESIGN.md 5.2 (checked with fixture data in tests).
@@ -558,7 +558,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M2-9b · UI: Overview real-data wiring
-**Depends on:** M2-9a · **Status:** [ ]
+**Depends on:** M2-9a · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
 **Goal:** every figure on the Overview is real.
 **Steps:** wire Usage & Limits (today's model calls against the cap, from the health route), Recent Notes, and Tasks to the database; a failed load shows "Unavailable", never zero. Panels for open approvals, capability chips, and activity stay hidden until M3-24b.
 **Done when:** no hardcoded values remain.
@@ -570,7 +570,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add failure-state tests and confirm no mock data remains. Run the checkpoint routine.
 
 ### M2-10 · Milestone 2 gate
-**Depends on:** M2-1 to M2-9b · **Status:** [ ]
+**Depends on:** M2-1 to M2-9b · **Status:** [ ] (deferred — runs in the UI pass, 2026-11-23)
 **Goal:** prove PRD.md Section 7 M2 criteria and deploy.
 **Steps:** full tests, lint, tsc, build, bundle check, DESIGN.md Section 10.2 visual review; evidence for: second account isolation, `user_id` on all rows, signups still disabled, data survives a hard refresh, client cannot forge assistant or tool messages, client-supplied history is ignored; production: push migrations, verify env vars, smoke test; tag `v0.2.0`.
 **Done when:** all criteria evidenced; tag exists.
@@ -957,7 +957,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 4: VOICE
 
 ### M4-0 · Decision gate: British voices
-**Depends on:** M3-28 · **Status:** [ ]
+**Depends on:** M3-28 · **Status:** [x] (recorded without waiting on M3-28 — voice work needs only the M1 chat route, 2026-11-23)
 **Goal:** know what voices exist before designing around them.
 **Steps:** list available speech-synthesis voices in the browsers and devices I use (desktop and phone) with a small test page; note which have `en-GB`; research with sources what common setups provide; decide the default selection rule (prefer a British male voice if present, then any `en-GB`, then any English, then default); decide whether a cloud voice is worth evaluating later (free limits must be verified).
 **Done when:** findings and the selection rule are recorded in TECH_STACK.md Section 3.5.
@@ -999,7 +999,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read TECH_STACK.md Section 3.5 and DESIGN.md Section 6. Implement spoken replies via the interface using the voice-selection rule, a stop control, and text cleaning. Add unit tests. Run the checkpoint routine.
 
 ### M4-4 · Voice orb: desktop
-**Depends on:** M4-2, M4-3 · **Status:** [ ]
+**Depends on:** M4-2, M4-3 · **Status:** [ ] (deferred — UI pass, 2026-11-23)
 **Goal:** the orb with honest states.
 **Steps:** per DESIGN.md Section 6: Canvas 2D rings capped at 30fps, paused when the tab is hidden; states idle, listening (real microphone volume), thinking, speaking (scripted loop while speaking), error; text state announced; glow on the orb only.
 **Tests:** state mapping tests; reduced-motion renders a static orb.
@@ -1009,7 +1009,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DESIGN.md Sections 6, 7, and 8. Build the desktop orb with five states, a 30fps cap, tab-hidden pause, and a reduced-motion static mode. Add state-mapping tests. Run the checkpoint routine.
 
 ### M4-5 · Voice orb: mobile
-**Depends on:** M4-4 · **Status:** [ ]
+**Depends on:** M4-4 · **Status:** [ ] (deferred — UI pass, 2026-11-23)
 **Goal:** a light version for phones.
 **Steps:** CSS-only layers using transform and opacity; no SVG filters or particles; compact version in the Chat header; verify on a real phone and with CPU throttling.
 **Tests:** manual device check; throttled frame rate acceptable.
@@ -1019,7 +1019,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DESIGN.md Section 6 (mobile budget). Build the mobile orb with CSS transforms and opacity only, plus the compact header version. Help me test on a phone and with throttling. Run the checkpoint routine.
 
 ### M4-6 · Voice integration and gate
-**Depends on:** M4-5 · **Status:** [ ]
+**Depends on:** M4-5 · **Status:** [ ] (deferred — runs in the UI pass after the orb, 2026-11-23)
 **Goal:** prove PRD.md Section 7 M4 and deploy.
 **Steps:** voice flows through the normal chat path (same Model Gate, same history); persona text (British, calm, dry, formal; no imitation of any real person) in `lib/prompt.ts`; full suite, lint, tsc, build; DESIGN.md Section 10.2 visual review including reduced motion and the orb on a real phone; clear the orb-implementation [OPEN] tag in DESIGN.md Section 11; evidence for each M4 criterion; production deployment; tag `v0.4.0`.
 **Done when:** every criterion evidenced; tag exists.
