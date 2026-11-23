@@ -688,7 +688,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the six tests, including the superuser tamper test with the trigger disabled only for that test. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-8 · execute_approved_action (2 of 4): create_task
-**Depends on:** M3-7, M2-3 · **Status:** [ ]
+**Depends on:** M3-7, M2-3 · **Status:** [x]
 **Goal:** the first real tool write.
 **Steps:** hardcoded branch for `create_task` (validate parameters again in SQL; write the task with the approval's `user_id`); update the log to `succeeded` with the result; append the tool message; all inside the same function; no dynamic SQL.
 **Tests:** claim, task row, log, and message all appear; unknown tool name raises an error; CHECK violations propagate for M3-10.
