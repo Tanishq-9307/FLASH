@@ -1,6 +1,9 @@
-// Chat UI (M1-10, DESIGN.md §5.4/§8). The AI SDK chat hook sends the full
-// history with each request (M1 only; M2-6 replaces this with
-// server-authoritative history).
+// Chat UI (M1-10, DESIGN.md §5.4/§8; M2-6 server-authoritative history).
+// The hook sends only the latest message plus the conversation ID — the
+// server loads history from the database, so the browser can no longer
+// forge, drop, or reorder turns. The conversation ID arrives as a data
+// part at the start of the stream; when the stream finishes, the URL moves
+// to /chat?id=<id> so a refresh reloads the conversation.
 //
 // States: empty (no messages yet), loading/submitted, streaming (blinking
 // block cursor), error (with Retry), and cap-reached (the route's explicit
@@ -11,8 +14,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { APICallError, DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 
@@ -24,10 +29,57 @@ function textOf(message: { parts?: unknown }): string {
     .join("");
 }
 
-export default function Chat() {
+export default function Chat({
+  initialMessages,
+  conversationId,
+}: {
+  initialMessages?: UIMessage[];
+  conversationId?: string | null;
+}) {
   const [input, setInput] = useState("");
+  const router = useRouter();
+  // The conversation ID the transport sends with each request. Starts as
+  // the ID the page loaded (if any); a new conversation's ID arrives in
+  // the data part at the start of the first stream and lands here via
+  // onData. State, not a ref: useChat re-reads the latest transport on
+  // every send, so a new transport each render always carries the
+  // current ID.
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(
+    conversationId ?? null,
+  );
+
   const { messages, sendMessage, status, error, stop, regenerate } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest: ({ messages: all, trigger }) => {
+        if (trigger === "regenerate-message") {
+          return {
+            body: { conversationId: currentConversationId, regenerate: true },
+          };
+        }
+        // Only the latest message travels: the server owns the history.
+        const last = all[all.length - 1];
+        return {
+          body: { conversationId: currentConversationId, message: last },
+        };
+      },
+    }),
+    onData: (part) => {
+      if (part.type === "data-conversation") {
+        const data = part.data as { conversationId?: unknown };
+        if (typeof data.conversationId === "string") {
+          setCurrentConversationId(data.conversationId);
+        }
+      }
+    },
+    onFinish: () => {
+      // A new conversation now has an ID: move to its URL so a refresh
+      // reloads it from the database instead of starting over.
+      if (currentConversationId && currentConversationId !== conversationId) {
+        router.replace(`/chat?id=${currentConversationId}`);
+      }
+    },
   });
 
   // A message submitted from the header quick-ask bar arrives in client

@@ -202,26 +202,26 @@ export type Database = {
     Functions: {
       append_message: {
         Args: {
-          p_user_id: string
-          p_conversation_id: string
-          p_role: string
-          p_content: string
-          p_parts: Json
-          p_tool_call_id: string
+          p_user_id: string | null
+          p_conversation_id: string | null
+          p_role: string | null
+          p_content: string | null
+          p_parts: Json | null
+          p_tool_call_id: string | null
         }
         Returns: string
       }
       refund_api_call: {
         Args: {
-          p_user_id: string
-          p_usage_date: string
+          p_user_id: string | null
+          p_usage_date: string | null
         }
         Returns: undefined
       }
       reserve_api_call: {
         Args: {
-          p_user_id: string
-          p_cap: number
+          p_user_id: string | null
+          p_cap: number | null
         }
         Returns: { model_calls: number; usage_date: string }[]
       }

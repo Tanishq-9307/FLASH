@@ -264,7 +264,11 @@ function render({ tables, columns, fks, views, enums, functions }) {
     if (fn.proretset) returns = `${returns}[]`;
     lines.push(`      ${fn.proname}: {`);
     lines.push(`        Args: {`);
-    for (const a of inArgs) lines.push(`          ${a.name}: ${a.type}`);
+    // Postgres function arguments are always nullable at the SQL level
+    // (a caller may pass NULL for any of them), so every arg type carries
+    // `| null`. Without it, passing null for an optional argument such as
+    // append_message's p_tool_call_id fails the type check (M2-6).
+    for (const a of inArgs) lines.push(`          ${a.name}: ${a.type} | null`);
     lines.push(`        }`);
     lines.push(`        Returns: ${returns}`);
     lines.push(`      }`);

@@ -33,6 +33,13 @@ vi.mock("@ai-sdk/react", () => ({
   useChat: () => chatState.current,
 }));
 
+// The chat now uses useRouter (M2-6: move to /chat?id=<id> when a new
+// conversation's first stream finishes). The hook is mocked, so no router
+// is involved; the stub only has to exist.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
 afterEach(() => {
   cleanup();
   chatState.current = {

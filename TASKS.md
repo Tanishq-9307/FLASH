@@ -490,7 +490,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run it and report the real output. Run the checkpoint routine.
 
 ### M2-6 · Server-authoritative chat history
-**Depends on:** M2-5 · **Status:** [ ]
+**Depends on:** M2-5 · **Status:** [x]
 **Goal:** the client sends only the new message and a conversation ID.
 **Steps:**
 - Verify in the official AI SDK docs how to send only the latest message and an ID with the chat hook; configure it.
