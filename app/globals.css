@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* DESIGN.md Section 3: tokens. Hex values from the token table; contrast
+   ratios were calculated with the WCAG relative-luminance formula.
+   Tailwind v4 emits these @theme values as CSS custom properties, so
+   var(--color-*) and var(--font-*) work in custom CSS too. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #090d16;
+  --color-surface: #101624;
+  --color-surface-raised: #172033;
+  --color-border: #243049;
+  --color-border-strong: #5b6c92;
+  --color-text-primary: #eaf0fa;
+  --color-text-secondary: #a3b0c6;
+  --color-text-muted: #8593ad;
+  --color-accent-cyan: #2dd4e8;
+  --color-accent-violet: #a78bfa;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+  --color-on-accent: #04121a;
+
+  /* DESIGN.md Section 4 (owner decision 2026-11-07): body Barlow, titles
+     Rajdhani, mono JetBrains Mono — all SIL OFL 1.1, self-hosted via
+     next/font. The variables are set on <html> in app/layout.tsx. */
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-rajdhani), var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  min-height: 100vh;
+}
+
+/* DESIGN.md Section 3.1 (owner decision 2026-11-07): faint static blueprint
+   grid plus a soft blue glow behind the workspace. Removed on mobile and
+   under reduced motion. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45, 212, 232, 0.08), transparent),
+    linear-gradient(rgba(45, 212, 232, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 212, 232, 0.03) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    32px 32px,
+    32px 32px;
+}
+
+@media (max-width: 767px) {
+  body::before {
+    display: none;
+  }
+}
+
+/* DESIGN.md Section 3.1: panel frame — slight gradient, cyan-tinted
+   outline, soft static glow, brighter 14px corner brackets. */
+.flash-frame {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-raised),
+    var(--color-surface)
+  );
+  box-shadow: 0 0 24px rgba(45, 212, 232, 0.07);
+}
+
+.flash-frame::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) left top / 14px 2px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) left top / 2px 14px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) right top / 14px 2px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) right top / 2px 14px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) left bottom / 14px 2px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) left bottom / 2px 14px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) right bottom / 14px 2px,
+    linear-gradient(var(--color-accent-cyan), var(--color-accent-cyan)) right bottom / 2px 14px;
+  background-repeat: no-repeat;
+  opacity: 0.8;
+}
+
+/* DESIGN.md Section 4: panel titles — JetBrains Mono, 12px, uppercase,
+   letter-spacing 0.08em, --text-secondary. */
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+}
+
+/* DESIGN.md Section 8: visible focus — 2px cyan ring with offset on all
+   interactive elements; never removed. */
+:focus-visible {
+  outline: 2px solid var(--color-accent-cyan);
+  outline-offset: 2px;
+}
+
+/* DESIGN.md Section 7: honour prefers-reduced-motion — transitions instant,
+   background grid removed. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  body::before {
+    display: none;
+  }
 }

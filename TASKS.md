@@ -167,7 +167,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Record the live URL in README.md. Run the checkpoint routine.
 
 ### M0-6 · Design tokens and fonts
-**Depends on:** M0-5 · **Status:** [~]
+**Depends on:** M0-5 · **Status:** [x]
 **Goal:** the app wears the DESIGN.md foundations.
 **Steps:**
 - Map every token in DESIGN.md Section 3 (hex or HSL) into `app/globals.css` using `@theme` (v4) or the pinned equivalent.
@@ -184,7 +184,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Verify no external font requests. Run the checkpoint routine.
 
 ### M0-7 · Milestone 0 gate
-**Depends on:** M0-1 to M0-6 · **Status:** [ ]
+**Depends on:** M0-1 to M0-6 · **Status:** [~]
 **Goal:** prove M0 is complete (PRD.md Section 7, M0).
 **Steps:** run lint, type check, build; run the applicable items of the DESIGN.md Section 10.2 review (tokens, contrast of the test page); verify the live deployment; confirm hooks still block; record evidence per criterion in PROGRESS.md; tag `v0.0.1`.
 **Done when:** every M0 criterion has evidence; the tag exists.
