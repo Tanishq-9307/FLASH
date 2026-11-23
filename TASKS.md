@@ -150,7 +150,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Document the workflow in README.md. Run the checkpoint routine.
 
 ### M0-5 · Vercel deployment and execution limits
-**Depends on:** M0-4 · **Status:** [~]
+**Depends on:** M0-4 · **Status:** [x]
 **Goal:** the scaffold is live and long-running routes are configured on purpose.
 **Steps:**
 - Push to the private GitHub repo; import into Vercel.
@@ -167,7 +167,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Record the live URL in README.md. Run the checkpoint routine.
 
 ### M0-6 · Design tokens and fonts
-**Depends on:** M0-5 · **Status:** [ ]
+**Depends on:** M0-5 · **Status:** [~]
 **Goal:** the app wears the DESIGN.md foundations.
 **Steps:**
 - Map every token in DESIGN.md Section 3 (hex or HSL) into `app/globals.css` using `@theme` (v4) or the pinned equivalent.
