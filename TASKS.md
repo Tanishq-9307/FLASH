@@ -597,7 +597,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Find Google's current Gemini API terms on the official site, summarise what they say about free-tier prompts, and present the three options. Record my decision and update the [OPEN] tags. Run the checkpoint routine.
 
 ### M3-1a · Migration: memories, tool_approvals, action_logs
-**Depends on:** M3-0 · **Status:** [ ]
+**Depends on:** M3-0 · **Status:** [x]
 **Goal:** the approval and audit tables.
 **Steps:** per DATABASE.md 3.7 to 3.9 and 4: tables, CHECKs, composite foreign keys (`ON DELETE SET NULL (conversation_id)`; the `action_logs` approval foreign key `ON DELETE NO ACTION`), partial unique index `idx_one_open_approval`, client SELECT only on the security tables, grants.
 **Done when:** applied to dev; types generated.

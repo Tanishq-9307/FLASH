@@ -12,6 +12,102 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      action_logs: {
+        Row: {
+          id: string
+          user_id: string
+          conversation_id: string | null
+          approval_id: string | null
+          tool_call_id: string
+          tool_name: string
+          parameters: Json
+          execution_status: string
+          result_payload: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          conversation_id?: string | null
+          approval_id?: string | null
+          tool_call_id: string
+          tool_name: string
+          parameters: Json
+          execution_status: string
+          result_payload?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          conversation_id?: string | null
+          approval_id?: string | null
+          tool_call_id?: string
+          tool_name?: string
+          parameters?: Json
+          execution_status?: string
+          result_payload?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_logs_approval_fk",
+            columns: ["approval_id"],
+            isOneToOne: false,
+            referencedRelation: "tool_approvals",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "action_logs_approval_fk",
+            columns: ["approval_id"],
+            isOneToOne: false,
+            referencedRelation: "tool_approvals",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "action_logs_approval_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "tool_approvals",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "action_logs_approval_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "tool_approvals",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "action_logs_conversation_fk",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "action_logs_conversation_fk",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "action_logs_conversation_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "action_logs_conversation_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
+        ]
+      }
       api_usage: {
         Row: {
           user_id: string
@@ -143,6 +239,31 @@ export type Database = {
           status?: string
           page_count?: number | null
           error_code?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
+      memories: {
+        Row: {
+          id: string
+          user_id: string
+          fact: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          fact: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          fact?: string
           created_at?: string
           updated_at?: string
         }
@@ -287,6 +408,86 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+        ]
+      }
+      tool_approvals: {
+        Row: {
+          id: string
+          user_id: string
+          conversation_id: string | null
+          tool_call_id: string
+          tool_name: string
+          parameters: Json
+          parameters_hash: string
+          status: string
+          retry_count: number
+          expires_at: string
+          approved_at: string | null
+          consumed_at: string | null
+          outcome_delivered_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          conversation_id?: string | null
+          tool_call_id: string
+          tool_name: string
+          parameters: Json
+          parameters_hash: string
+          status?: string
+          retry_count?: number
+          expires_at: string
+          approved_at?: string | null
+          consumed_at?: string | null
+          outcome_delivered_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          conversation_id?: string | null
+          tool_call_id?: string
+          tool_name?: string
+          parameters?: Json
+          parameters_hash?: string
+          status?: string
+          retry_count?: number
+          expires_at?: string
+          approved_at?: string | null
+          consumed_at?: string | null
+          outcome_delivered_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_approvals_conversation_fk",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "tool_approvals_conversation_fk",
+            columns: ["conversation_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
+          {
+            foreignKeyName: "tool_approvals_conversation_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "tool_approvals_conversation_fk",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "conversations",
+            referencedColumns: ["user_id"],
+          },
         ]
       }
     }
