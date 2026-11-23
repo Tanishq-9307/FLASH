@@ -13,5 +13,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // PGlite starts a real PostgreSQL per test file; on this small VM that
+    // can exceed Vitest's 5 s default when files run in parallel.
+    testTimeout: 30000,
   },
 });

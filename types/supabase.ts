@@ -51,6 +51,20 @@ export type Database = {
     Views: {
     }
     Functions: {
+      refund_api_call: {
+        Args: {
+          p_user_id: string
+          p_usage_date: string
+        }
+        Returns: undefined
+      }
+      reserve_api_call: {
+        Args: {
+          p_user_id: string
+          p_cap: number
+        }
+        Returns: { model_calls: number; usage_date: string }[]
+      }
       set_updated_at: {
         Args: {
         }

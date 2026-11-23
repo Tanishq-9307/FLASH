@@ -279,7 +279,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Apply to the dev database and generate types. Run the checkpoint routine.
 
 ### M1-4 · Migration: rate-limit functions
-**Depends on:** M1-3 · **Status:** [ ]
+**Depends on:** M1-3 · **Status:** [x]
 **Goal:** the atomic daily cap exists in the database.
 **Steps:**
 - `supabase migration new m1_functions`.

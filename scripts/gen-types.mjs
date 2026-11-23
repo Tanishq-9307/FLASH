@@ -93,8 +93,10 @@ function pgTypeToTs(dataType, udtName) {
 
 // regtype name (from pg_proc, e.g. "uuid", "integer", "text[]") -> TypeScript.
 // Unlike information_schema, pg_proc reports scalar types by name, so they
-// go through the same scalar table.
+// go through the same scalar table. A missing type (an index past the end
+// of the type array) maps to `unknown`, never to the literal `undefined`.
 function regtypeToTs(name) {
+  if (name === "undefined") return "unknown";
   if (name.endsWith("[]")) return `${regtypeToTs(name.slice(0, -2))}[]`;
   return SCALARS.get(name) ?? name;
 }
@@ -150,7 +152,8 @@ async function introspect(db) {
   ).rows;
   const functions = (
     await db.query(
-      `SELECT p.proname, p.proargnames, p.proargtypes::regtype[] AS arg_types,
+      `SELECT p.proname, p.proargnames,
+              COALESCE(p.proallargtypes, p.proargtypes)::regtype[] AS arg_types,
               p.proargmodes, p.prorettype::regtype AS ret_type, p.proretset
          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY p.proname`,
