@@ -1,5 +1,5 @@
-import NotBuiltYet from "@/components/not-built-yet";
+import Chat from "@/components/chat";
 
 export default function Page() {
-  return <NotBuiltYet title="Chat" />;
+  return <Chat />;
 }

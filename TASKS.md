@@ -374,7 +374,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add a component test for the three states. Run the checkpoint routine.
 
 ### M1-10 · Chat UI and safe markdown
-**Depends on:** M1-7, M1-9 · **Status:** [ ]
+**Depends on:** M1-7, M1-9 · **Status:** [x]
 **Goal:** I can converse; output is rendered safely.
 **Steps:** message list and composer; user, assistant, and system-notice styles (DESIGN.md 5.4); streaming indicator; loading, empty (no messages yet), error, retry, and cap-reached states; markdown renderer with raw HTML disabled, images never rendered (show alt text or nothing), links open with `rel="noopener noreferrer"` and show their domain; `aria-live` regions per DESIGN.md Section 8. (M1 uses the AI SDK chat hook sending the full history; M2-6 reconfigures it.)
 **Done when:** conversation works; a reply containing a remote-image markdown line renders no image; cap-reached notice appears when forced.
