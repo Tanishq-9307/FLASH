@@ -312,7 +312,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Show the guard refusing a non-dev run. Run the checkpoint routine.
 
 ### M1-6 · Server-only admin client and health route
-**Depends on:** M1-5 · **Status:** [ ]
+**Depends on:** M1-5 · **Status:** [x]
 **Goal:** a safe service-role client and a cheap health check.
 **Steps:**
 - `utils/supabase/admin.ts` starts with `import 'server-only'`, reads the service-role key from the environment (not `NEXT_PUBLIC_`).

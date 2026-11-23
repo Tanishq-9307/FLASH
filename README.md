@@ -34,7 +34,11 @@ npm run dev
 - Database tests live in `tests/db/` with helpers in `tests/db/helpers.ts`: each test file starts a fresh PGlite database, applies all migrations, and creates/deletes its test users through the admin-API helpers (`createTestUser` / `deleteTestUser`, which insert into the `auth.users` stand-in — there is no live dev project in this build).
 - After changing migrations, regenerate types with `npm run gen:types` (see "Database workflow" below).
 
-## Database workflow
+## Health check
+
+- `GET /api/health` needs a signed-in user (401 logged out) and returns `{ status: "online" | "limit_reached", usage, cap }`. It reads today's usage from `api_usage` and never calls the model, so it costs no quota. The top-bar status chip polls it.
+- The daily cap is 20 model calls (PRD §6 [DECIDED]), overridable with `DAILY_MODEL_CALL_CAP` (see `lib/config.ts`); a bad override fails closed to 0.
+- After a production build, run `scripts/check-bundle.sh`: it fails if a secret key shape (`sb_secret_…`, `AIza…`), a secret variable name, or a literal secret value from `.env.local` appears in the client bundle (`.next/static`). The service-role key lives only on the server via `utils/supabase/admin.ts` (`import "server-only"`).
 
 ## Database workflow
 
