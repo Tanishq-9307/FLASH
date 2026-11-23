@@ -477,7 +477,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write one migration with a plain-language header for append_message with the allowed roles and strict grants. Write the four tests listed. Apply to dev and regenerate types. Run the checkpoint routine.
 
 ### M2-5 · Isolation and privilege tests
-**Depends on:** M2-4 · **Status:** [ ]
+**Depends on:** M2-4 · **Status:** [x]
 **Goal:** prove ownership rules.
 **Steps:** two admin-API test users A and B (dev only). Tests from DATABASE.md Section 6 (Isolation and privileges; Message integrity): A cannot see B's rows (all tables); inserts with B's `user_id` fail; inserting a message into B's conversation fails; changing `user_id` fails; catalog shows RLS on every table in `public` and no privileges for `anon`.
 **Done when:** the suite passes.
