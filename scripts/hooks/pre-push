@@ -1,0 +1,61 @@
+#!/bin/bash
+# pre-push — block pushes whose history contains secret-shaped values.
+#
+# Scans every commit being pushed (new branches and existing branches).
+# A key that was added in one commit and removed in a later commit is still
+# in history, so it is still blocked: each pushed commit is scanned, not
+# just the final tree. Rules are the same as pre-commit (see secret-scan.sh);
+# .env.example is excluded. The matched value is never printed.
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCAN="$HOOK_DIR/secret-scan.sh"
+
+blocked=0
+tmpdir="$(mktemp -d)" || exit 1
+trap 'rm -rf "$tmpdir"' EXIT INT TERM
+
+# Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Empty push (delete) — nothing to scan.
+  case "$local_sha" in
+    0000000000000000000000000000000000000000) continue ;;
+  esac
+
+  # Commits being pushed. New branch (remote sha all zeros): everything not
+  # already on a remote-tracking branch. Existing branch: the range.
+  case "$remote_sha" in
+    0000000000000000000000000000000000000000)
+      git rev-list "$local_sha" --not --remotes 2>/dev/null > "$tmpdir/commits"
+      ;;
+    *)
+      git rev-list "$remote_sha..$local_sha" 2>/dev/null > "$tmpdir/commits"
+      ;;
+  esac
+
+  while read -r commit; do
+    # Files changed by this commit (new names for renames), NUL-separated.
+    git diff-tree --no-commit-id --name-only -r "$commit" -z > "$tmpdir/files"
+    while IFS= read -r -d '' file; do
+      case "$file" in
+        .env.example) continue ;;
+      esac
+      case "$file" in
+        *.md|*.markdown) vars="" ;;
+        *) vars="--vars" ;;
+      esac
+      # Content of the file at this commit; deleted files have none.
+      if git cat-file -e "$commit:$file" 2>/dev/null; then
+        if ! git show "$commit:$file" | "$SCAN" $vars "$file@$commit"; then
+          echo "pre-push: push blocked: secret pattern in $file (commit $commit)" >&2
+          blocked=1
+        fi
+      fi
+    done < "$tmpdir/files"
+  done < "$tmpdir/commits"
+done
+
+if [ $blocked -ne 0 ]; then
+  echo "pre-push: remove the secret from history (or rotate it if it was ever pushed) and try again." >&2
+  exit 1
+fi
+exit 0

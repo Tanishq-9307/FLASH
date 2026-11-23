@@ -1,0 +1,44 @@
+#!/bin/bash
+# pre-commit — block commits containing secret-shaped values.
+#
+# Scans the staged content of every added, copied, modified, or renamed
+# file (excluding .env.example):
+#   - key shapes (Gemini key, Supabase secret key, legacy JWT) in all files;
+#   - non-empty NAME=value assignments of server-only secret variables in
+#     non-Markdown files.
+# The matched value is never printed. Bypass only with git commit
+# --no-verify if you are certain a match is a false positive.
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCAN="$HOOK_DIR/secret-scan.sh"
+
+list="$(mktemp)" || exit 1
+trap 'rm -f "$list"' EXIT INT TERM
+
+# Staged files, NUL-separated; handles paths with spaces.
+git diff --cached --name-only --diff-filter=ACMR -z > "$list"
+
+blocked=0
+while IFS= read -r -d '' file; do
+  # .env.example holds empty placeholders only; it is excluded by design.
+  case "$file" in
+    .env.example) continue ;;
+  esac
+
+  case "$file" in
+    *.md|*.markdown) vars="" ;;
+    *) vars="--vars" ;;
+  esac
+
+  # Scan the staged version, not the working tree.
+  if ! git show ":$file" | "$SCAN" $vars "$file"; then
+    echo "pre-commit: commit blocked: secret pattern in staged file: $file" >&2
+    blocked=1
+  fi
+done < "$list"
+
+if [ $blocked -ne 0 ]; then
+  echo "pre-commit: remove the secret (or rotate it if it was ever committed) and try again." >&2
+  exit 1
+fi
+exit 0
