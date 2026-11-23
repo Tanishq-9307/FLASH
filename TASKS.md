@@ -184,7 +184,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Verify no external font requests. Run the checkpoint routine.
 
 ### M0-7 · Milestone 0 gate
-**Depends on:** M0-1 to M0-6 · **Status:** [~]
+**Depends on:** M0-1 to M0-6 · **Status:** [x]
 **Goal:** prove M0 is complete (PRD.md Section 7, M0).
 **Steps:** run lint, type check, build; run the applicable items of the DESIGN.md Section 10.2 review (tokens, contrast of the test page); verify the live deployment; confirm hooks still block; record evidence per criterion in PROGRESS.md; tag `v0.0.1`.
 **Done when:** every M0 criterion has evidence; the tag exists.
