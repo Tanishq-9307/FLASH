@@ -505,6 +505,12 @@ export type Database = {
         }
         Returns: string
       }
+      approve_action: {
+        Args: {
+          p_approval_id: string | null
+        }
+        Returns: { approval_id: string; approval_status: string }[]
+      }
       create_pending_approval: {
         Args: {
           p_user_id: string | null

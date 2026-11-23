@@ -646,7 +646,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DATABASE.md Section 5.1. Write one migration with a plain-language header for log_read_only_action (status limited, service_role only) with the three tests listed. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M3-4 · Function: approve_action
-**Depends on:** M3-2 · **Status:** [ ]
+**Depends on:** M3-2 · **Status:** [x]
 **Goal:** the owner can move `pending` to `approved`, once, before expiry.
 **Steps:** per ARCHITECTURE.md 5.4 atomic update; `auth.uid()`; authenticated only.
 **Tests:** pending to approved works; expired approval refused (short TTL); other user's approval refused; already approved or rejected approval refused; anon denied.
