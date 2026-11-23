@@ -765,7 +765,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M3-15 · Tool registry and schemas
-**Depends on:** M3-14 · **Status:** [ ] code done 2026-11-07; schema tests pass
+**Depends on:** M3-14 · **Status:** [x]
 **Goal:** a typed server-side allowlist.
 **Steps:** `lib/tools/registry.ts`: each tool defines name, description, Zod input schema, kind (read-only or state-changing), risk level (static), display label, and result format. Register `get_tasks` (read-only), `create_task` and `save_memory` (state-changing). State-changing tools are exposed to the model **without an automatic execute function**. Unknown tool names are rejected.
 **Done when:** registry compiles; schema tests pass.
