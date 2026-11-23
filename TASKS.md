@@ -800,7 +800,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the five mocked-model tests. Run the checkpoint routine.
 
 ### M3-18 · Tool loop (2 of 2): state-changing proposals
-**Depends on:** M3-17, M3-2 · **Status:** [ ] code done 2026-11-07; mocked tests pass, live check after keys + SQL
+**Depends on:** M3-17, M3-2 · **Status:** [x]
 **Goal:** a proposal creates an approval and stops the loop.
 **Steps:** on a valid state-changing tool call: `create_pending_approval`; persist the assistant message (tool-call parts) via `append_message`; **end the stream** with a data part carrying only the `approval_id`; do not execute anything. If `open_approval_exists`, return a discarded result to the model once and let it ask me to resolve the open dialog.
 **Tests (model mocked):** proposal creates exactly one pending approval and a pending log; stream ends; nothing executed; second proposal discarded; injected text cannot skip the approval step.

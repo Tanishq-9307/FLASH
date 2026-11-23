@@ -41,9 +41,13 @@
 //    (stopWhen: stepCountIs(1)). After a step with tool calls, the server
 //    executes them — invalid arguments get an error result and nothing
 //    runs; read-only tools run with the user-scoped client and are logged
-//    via log_read_only_action; state-changing tools get an
-//    approval_required error result until M3-18 wires the approval flow —
-//    then the results go back to the model for the next step. A step with
+//    via log_read_only_action; state-changing tools are recorded as
+//    proposals with create_pending_approval (M3-18) and never executed
+//    — the loop then ends the stream with a data part carrying only
+//    the approval_id, and the owner decides in the approval dialog
+//    (M3-21). If an approval is already open, the proposal is
+//    discarded and the model gets an error result instead. Then the
+//    results go back to the model for the next step. A step with
 //    no tool calls is the final answer and ends the loop. If the model
 //    still wants tools after the third call, the loop appends a "Maximum
 //    reasoning depth reached" system message and ends the turn. For a
@@ -536,6 +540,13 @@ export async function POST(request: Request) {
         // in the order the model made them.
         const toolResults: ToolResultPart[] = [];
         const summaries: string[] = [];
+        // A proposal ends the stream: the first approval created in
+        // this step is the one the client opens a dialog for. Every
+        // call in the step is still processed in order first, so a
+        // second proposal in the same step hits open_approval_exists
+        // and is discarded (its error result is persisted but never
+        // reaches the model — the stream has ended).
+        let createdApprovalId: string | null = null;
         for (const call of step.toolCalls) {
           const executed = await executeToolCall(
             { supabase, admin },
@@ -547,15 +558,25 @@ export async function POST(request: Request) {
               input: call.input,
             },
           );
-          toolResults.push(executed.result);
           summaries.push(executed.summary);
+          if (executed.outcome === "approval_created") {
+            if (createdApprovalId === null) {
+              createdApprovalId = executed.approvalId;
+            }
+            // No tool-result part: the stream ends and the model never
+            // sees one.
+          } else {
+            toolResults.push(executed.result);
+          }
         }
 
         // Persist the step (call + result parts) and hand the results
         // to the model for the next step. The assistant message carries
         // only the tool-call parts — any text the step also produced
         // was already persisted separately by onEnd above, so it must
-        // not appear twice in the history.
+        // not appear twice in the history. For a proposal the parts
+        // are the tool-call parts only (no result part exists), and
+        // the message text is the proposal summary.
         await persistToolStep(
           step.toolCalls.map((call) => ({
             type: "tool-call",
@@ -566,6 +587,17 @@ export async function POST(request: Request) {
           toolResults,
           summaries,
         );
+        if (createdApprovalId !== null) {
+          // M3-18: end the stream with a data part carrying only the
+          // approval id. The dialog the owner sees (M3-21) renders
+          // the parameters from the stored database snapshot as plain
+          // text — never from the model, and never from this stream.
+          writer.write({
+            type: "data-approval",
+            data: { approvalId: createdApprovalId },
+          });
+          break;
+        }
         modelMessages.push({
           role: "assistant",
           content: step.toolCalls.map((call) => ({

@@ -32,3 +32,15 @@ export function usageDateToday(): string {
 // "Maximum reasoning depth reached" system message. The counter
 // resets on each new user message or resume request.
 export const MAX_MODEL_CALLS_PER_REQUEST = 3;
+
+// Approval lifetime in seconds (PRD.md §6 [PROPOSED]: 5 minutes,
+// configurable). The database refuses TTLs outside 1–3600 seconds, so
+// an override is clamped into that range instead of failing the
+// proposal; a non-numeric override falls back to the default.
+export function approvalTtlSeconds(): number {
+  const raw = process.env.APPROVAL_TTL_SECONDS;
+  if (raw === undefined || raw.trim() === "") return 300;
+  const value = Number(raw);
+  if (!Number.isInteger(value)) return 300;
+  return Math.min(3600, Math.max(1, value));
+}
