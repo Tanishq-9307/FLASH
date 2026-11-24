@@ -20,6 +20,7 @@ import type { UIMessage } from "ai";
 import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 import { useRefreshConversations } from "./conversations-context";
+import { createChatLatencyTracker, recordChatLatency } from "@/lib/telemetry";
 import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
 import {
   executeAction,
@@ -65,6 +66,13 @@ export default function Chat({
   // A new conversation or a finished reply changes the list (a new row,
   // or updated_at moving the row to the top) — re-list from the server.
   const refreshConversations = useRefreshConversations();
+
+  // App telemetry (2026-11-24): the reply is timed client-side, send →
+  // first streamed token → completion, and the completed sample is kept
+  // for the Overview Usage panel. A stopped or failed reply records
+  // nothing — it is not a completed reply. One tracker per mount, from
+  // the state initializer, so its identity is stable across renders.
+  const [latencyTracker] = useState(() => createChatLatencyTracker());
 
   const { messages, sendMessage, setMessages, status, error, stop, regenerate } = useChat({
     messages: initialMessages,
@@ -113,6 +121,22 @@ export default function Chat({
     },
   });
 
+  // The chat hook's status drives the latency tracker: "streaming"
+  // means the first token has arrived, "ready" after a stream means
+  // the reply completed, "error" means it failed. The mount-time
+  // "ready" is a no-op — the tracker has no send in flight, so
+  // onFinish returns null.
+  useEffect(() => {
+    if (status === "streaming") {
+      latencyTracker.onFirstToken();
+    } else if (status === "ready") {
+      const sample = latencyTracker.onFinish(new Date().toISOString());
+      if (sample) recordChatLatency(sample);
+    } else if (status === "error") {
+      latencyTracker.onError();
+    }
+  }, [status, latencyTracker]);
+
   // A message submitted from the header quick-ask bar arrives in client
   // state (never in the URL). Consume it once on mount and send it through
   // the normal composer path — same route, same Model Gate. The consumed
@@ -130,8 +154,9 @@ export default function Chat({
     consumedRef.current = true;
     const text = pending;
     clear();
+    latencyTracker.onSend();
     void sendMessage({ text });
-  }, [pending, clear, sendMessage]);
+  }, [pending, clear, sendMessage, latencyTracker]);
 
   // After an approval outcome is delivered, the resume follow-up is
   // persisted server-side: reload the stored messages so the chat
@@ -154,6 +179,7 @@ export default function Chat({
     const text = input.trim();
     if (!text || isStreaming) return;
     setInput("");
+    latencyTracker.onSend();
     void sendMessage({ text });
   }
 
@@ -204,7 +230,10 @@ export default function Chat({
           <p className="text-sm text-danger">The reply failed. Your message was not lost.</p>
           <button
             type="button"
-            onClick={() => void regenerate()}
+            onClick={() => {
+              latencyTracker.onSend();
+              void regenerate();
+            }}
             className="flex min-h-11 items-center rounded-md border border-border-strong px-4 text-sm text-text-primary"
           >
             Retry
@@ -247,7 +276,13 @@ export default function Chat({
         {isStreaming ? (
           <button
             type="button"
-            onClick={() => stop()}
+            onClick={() => {
+              // A stopped reply is not a completed reply: the tracker
+              // drops it, so the Overview never shows a stopped reply
+              // as a completion time.
+              latencyTracker.onStop();
+              stop();
+            }}
             className="flex min-h-11 items-center rounded-md border border-border-strong px-4 text-sm text-text-primary"
           >
             Stop

@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { usagePercent } from "@/lib/usage";
+import {
+  formatBytes,
+  formatClockTime,
+  formatLatency,
+  readChatLatency,
+  readJsHeap,
+  type ChatLatencySample,
+  type HealthLatency,
+  type JsHeapReading,
+} from "@/lib/telemetry";
 import { Panel, Unavailable } from "./panel";
 import { RingGauge, RingGaugeUnavailable } from "./ring-gauge";
 
@@ -24,6 +34,21 @@ export type UsageState =
 
 export type TaskTally = { done: number; total: number } | null;
 
+/** App telemetry (owner-directed addition, 2026-11-24; DESIGN.md §9):
+ * every field is a real measurement or null. `chat` is the last timed
+ * chat reply (send → first token → completion), `health` is the timed
+ * /api/health fetch, `heap` is the browser-reported JS heap when this
+ * browser provides it. Null means "never measured" — the panel says so
+ * instead of showing a number. There is deliberately no laptop
+ * hardware here: a web app cannot read it. */
+export type TelemetryState = {
+  chat: ChatLatencySample | null;
+  health: HealthLatency | null;
+  heap: JsHeapReading | null;
+};
+
+const EMPTY_TELEMETRY: TelemetryState = { chat: null, health: null, heap: null };
+
 /**
  * Usage & Limits (DESIGN.md 2 and 5.7), in the mockup's ring-gauge style.
  * Every gauge is a real figure: model calls today from /api/health, and
@@ -40,13 +65,17 @@ export type TaskTally = { done: number; total: number } | null;
  * today's model-call usage as a percentage of the configured daily
  * limit, and this month's search usage as a percentage of the monthly
  * limit (Tavily credits, 1 per basic search). There is no "LIMIT
- * REACHED" state any more.
+ * REACHED" state any more. Telemetry (2026-11-24) is app telemetry
+ * only: the timed health fetch, the last timed chat reply, and the
+ * browser-reported JS heap when the browser provides it — measured
+ * values or "No requests yet" / "Unavailable", never invented figures.
  */
 export function UsagePanelView({
   state,
   tasks = null,
   openApprovals,
   memoryEnabled,
+  telemetry = EMPTY_TELEMETRY,
 }: {
   state: UsageState;
   tasks?: TaskTally;
@@ -54,6 +83,8 @@ export function UsagePanelView({
   openApprovals?: number | null;
   /** The memory switch, or null when the load failed. */
   memoryEnabled?: boolean | null;
+  /** Measured app telemetry; absent means nothing has been measured yet. */
+  telemetry?: TelemetryState;
 }) {
   const modelPercent =
     state.kind === "ok" ? usagePercent(state.usage, state.cap) : null;
@@ -139,6 +170,54 @@ export function UsagePanelView({
               </p>
             ) : null}
           </div>
+          <div className="mt-4 border-t border-border pt-3">
+            <p className="font-display text-base font-semibold tracking-[0.06em] text-text-primary uppercase">
+              Telemetry
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">
+              Last chat reply:{" "}
+              {telemetry.chat &&
+              formatLatency(telemetry.chat.firstTokenMs) !== null &&
+              formatLatency(telemetry.chat.totalMs) !== null ? (
+                <span className="text-text-primary">
+                  first token {formatLatency(telemetry.chat.firstTokenMs)} · completed{" "}
+                  {formatLatency(telemetry.chat.totalMs)}
+                  {formatClockTime(telemetry.chat.at) !== null
+                    ? ` · ${formatClockTime(telemetry.chat.at)}`
+                    : ""}
+                </span>
+              ) : (
+                <span className="text-text-primary">No requests yet</span>
+              )}
+            </p>
+            <p className="mt-2 text-sm text-text-secondary">
+              Health check:{" "}
+              {telemetry.health && formatLatency(telemetry.health.ms) !== null ? (
+                <span className="text-text-primary">
+                  {formatLatency(telemetry.health.ms)}
+                  {formatClockTime(telemetry.health.at) !== null
+                    ? ` · ${formatClockTime(telemetry.health.at)}`
+                    : ""}
+                </span>
+              ) : (
+                <span className="text-text-primary">Unavailable</span>
+              )}
+            </p>
+            {telemetry.heap &&
+            formatBytes(telemetry.heap.usedBytes) !== null &&
+            formatBytes(telemetry.heap.totalBytes) !== null ? (
+              <p className="mt-2 text-sm text-text-secondary">
+                JS heap (browser-reported):{" "}
+                <span className="text-text-primary">
+                  {formatBytes(telemetry.heap.usedBytes)} used of{" "}
+                  {formatBytes(telemetry.heap.totalBytes)}
+                </span>
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-text-muted">
+              App telemetry only — a web app cannot read this device&apos;s hardware.
+            </p>
+          </div>
         </>
       )}
     </Panel>
@@ -172,10 +251,34 @@ export function UsagePanel({
   memoryEnabled?: boolean | null;
 }) {
   const [state, setState] = useState<UsageState>({ kind: "loading" });
+  // Browser-only readings, taken once at mount from the state
+  // initializer: the last measured chat reply (kept in localStorage by
+  // Chat) and the JS heap, when this browser reports one (Chromium
+  // only — otherwise it stays null and the panel leaves the line out
+  // entirely). The initializer runs before the health fetch resolves,
+  // while the panel still shows "Loading…", so these values never
+  // reach the server-rendered HTML.
+  const [telemetry, setTelemetry] = useState<TelemetryState>(() => ({
+    chat: readChatLatency(),
+    health: null,
+    heap: readJsHeap(),
+  }));
   useEffect(() => {
     let cancelled = false;
+    // The health fetch is timed with the same clock the chat tracker
+    // uses, so the "Health check" line is a real measured duration.
+    const startedAt = performance.now();
     fetch("/api/health", { cache: "no-store" })
-      .then(async (res) => usageFromHealth(res.ok, await res.json().catch(() => null)))
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!cancelled) {
+          setTelemetry((prev) => ({
+            ...prev,
+            health: { ms: performance.now() - startedAt, at: new Date().toISOString() },
+          }));
+        }
+        return usageFromHealth(res.ok, body);
+      })
       .catch((): UsageState => ({ kind: "unavailable" }))
       .then((next) => {
         if (!cancelled) setState(next);
@@ -190,6 +293,7 @@ export function UsagePanel({
       tasks={tasks}
       openApprovals={openApprovals}
       memoryEnabled={memoryEnabled}
+      telemetry={telemetry}
     />
   );
 }
