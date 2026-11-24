@@ -862,7 +862,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add integration tests for success, retry, expiry, and cancel. Run the checkpoint routine.
 
 ### M3-22 · UI: Activity timeline
-**Depends on:** M3-14 · **Status:** [ ] code done 2026-11-07; rendering tests pass
+**Depends on:** M3-14 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** the honest audit view.
 **Steps:** per DESIGN.md 5.6: rows from `action_logs` with icon, text status, timestamp, tool, expandable parameters; statuses succeeded, failed, not_executed, unknown, pending; tamper rows highlighted; filters; empty and error states.
 **Tests:** rendering per status; tamper highlight; error state.
