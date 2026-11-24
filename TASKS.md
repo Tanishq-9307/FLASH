@@ -570,7 +570,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add failure-state tests and confirm no mock data remains. Run the checkpoint routine.
 
 ### M2-10 · Milestone 2 gate
-**Depends on:** M2-1 to M2-9b · **Status:** [ ] (deferred — runs in the UI pass, 2026-11-23)
+**Depends on:** M2-1 to M2-9b · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** prove PRD.md Section 7 M2 criteria and deploy.
 **Steps:** full tests, lint, tsc, build, bundle check, DESIGN.md Section 10.2 visual review; evidence for: second account isolation, `user_id` on all rows, signups still disabled, data survives a hard refresh, client cannot forge assistant or tool messages, client-supplied history is ignored; production: push migrations, verify env vars, smoke test; tag `v0.2.0`.
 **Done when:** all criteria evidenced; tag exists.
