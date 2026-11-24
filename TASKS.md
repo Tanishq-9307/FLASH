@@ -532,7 +532,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add validation and ownership tests. Run the checkpoint routine.
 
 ### M2-8b · UI: notes with full-text search
-**Depends on:** M2-3 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
+**Depends on:** M2-3 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** I can write and search notes.
 **Steps:** notes list with title and content; create, edit, delete through Server Actions with Zod limits equal to the database CHECKs; search through a Server Action using the same expression as the GIN index; empty, loading, and error states.
 **Done when:** CRUD works; search returns matching notes.
