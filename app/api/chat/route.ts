@@ -76,7 +76,6 @@
 // Depth: at most 3 model calls per request (ARCHITECTURE.md §6). The
 // counter resets on each new user message or regenerate request.
 import { NextResponse } from "next/server";
-import { groq } from "@ai-sdk/groq";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -90,6 +89,7 @@ import {
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { chatModel, createFailoverState } from "@/lib/ai/provider";
 import { usageDateToday, MAX_MODEL_CALLS_PER_REQUEST } from "@/lib/config";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { dbMessagesToUIMessages, uiMessageText } from "@/lib/chat-history";
@@ -392,6 +392,10 @@ export async function POST(request: Request) {
     }
   }
 
+  // Failover state for this request (one backup attempt, shared by
+  // the tool loop's calls; the next request starts on Groq again).
+  const failover = createFailoverState();
+
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       // The client learns the conversation ID first, so it can move to
@@ -432,12 +436,18 @@ export async function POST(request: Request) {
         let result: ReturnType<typeof streamText>;
         try {
           result = streamText({
-            model: groq("llama-3.3-70b-versatile"),
+            model: chatModel(failover),
             instructions,
             messages: modelMessages,
             tools: toModelTools(),
             stopWhen: stepCountIs(1),
             abortSignal: request.signal,
+            // The SDK's own retries are off: the single hot-swap
+            // failover inside chatModel is the only retry, so one
+            // request costs at most one primary attempt + one backup
+            // attempt. Without this the SDK would retry Groq twice
+            // before (and after) the failover.
+            maxRetries: 0,
             // The history can contain system messages (tool outcomes
             // rendered as system by dbMessagesToUIMessages, "Reply
             // interrupted" lines, record-failure notices). They are written by

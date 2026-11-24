@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { modelCallCap, monthlySearchCap, usageDateToday, usageMonthStart } from "@/lib/config";
+import { lastAnsweredProvider } from "@/lib/ai/provider";
 
 export async function GET() {
   const supabase = await createClient();
@@ -48,7 +49,17 @@ export async function GET() {
   );
 
   return NextResponse.json(
-    { status: "online", usage, cap, searchUsage, searchCap },
+    {
+      status: "online",
+      usage,
+      cap,
+      searchUsage,
+      searchCap,
+      // The provider that answered the most recent model call in
+      // this server instance ("groq" until any failover answers).
+      // The Usage panel shows it so the owner can see a fallback.
+      provider: lastAnsweredProvider(),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

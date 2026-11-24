@@ -23,7 +23,9 @@ const testState = vi.hoisted(() => ({
   db: null as PGlite | null,
   user: null as { id: string } | null,
   modelCalls: 0,
-  modelMode: "ok" as "ok" | "error" | "hang",
+  modelMode: "ok" as "ok" | "error" | "error429" | "hang",
+  backupMode: "ok" as "ok" | "error500",
+  backupCalls: 0,
   abortAfterRecord: null as (() => void) | null,
   lastPrompt: null as unknown,
 }));
@@ -191,6 +193,21 @@ vi.mock("@ai-sdk/groq", async () => {
   return {
     groq: () => {
       testState.modelCalls += 1;
+      if (testState.modelMode === "error429") {
+        // Retryable rate-limit error (failover tests): the statusCode
+        // is what the middleware reads, so it must be set — a plain
+        // Error has none and fails honestly without a backup attempt.
+        const err = new Error("provider 429 rate limited") as Error & {
+          statusCode: number;
+        };
+        err.statusCode = 429;
+        return new MockLanguageModelV4({
+          doStream: async (options) => {
+            testState.lastPrompt = options.prompt;
+            throw err;
+          },
+        });
+      }
       if (testState.modelMode === "error") {
         return new MockLanguageModelV4({
           doStream: async (options) => {
@@ -224,6 +241,43 @@ vi.mock("@ai-sdk/groq", async () => {
           const chunks: import("@ai-sdk/provider").LanguageModelV4StreamPart[] = [
             { type: "text-start", id: "t1" },
             { type: "text-delta", id: "t1", delta: "Hello" },
+            { type: "text-end", id: "t1" },
+            {
+              type: "finish",
+              finishReason: { unified: "stop", raw: undefined },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
+            },
+          ];
+          return { stream: simulateReadableStream({ chunks }) };
+        },
+      });
+    },
+  };
+});
+
+// OpenRouter backup (failover tests): same mock-model shape as the
+// Groq mock, answering with different text so the test can tell
+// which provider replied. The key is a test-only placeholder.
+vi.mock("@openrouter/ai-sdk-provider", async () => {
+  const { MockLanguageModelV4, simulateReadableStream } = await import("ai/test");
+  return {
+    createOpenRouter: () => () => {
+      return new MockLanguageModelV4({
+        doStream: async () => {
+          testState.backupCalls += 1;
+          if (testState.backupMode === "error500") {
+            const err = new Error("provider 500 overloaded") as Error & {
+              statusCode: number;
+            };
+            err.statusCode = 500;
+            throw err;
+          }
+          const chunks: import("@ai-sdk/provider").LanguageModelV4StreamPart[] = [
+            { type: "text-start", id: "t1" },
+            { type: "text-delta", id: "t1", delta: "Hello from OpenRouter" },
             { type: "text-end", id: "t1" },
             {
               type: "finish",
@@ -315,9 +369,12 @@ describe("POST /api/chat", () => {
     testState.user = null;
     testState.modelCalls = 0;
     testState.modelMode = "ok";
+    testState.backupMode = "ok";
+    testState.backupCalls = 0;
     testState.abortAfterRecord = null;
     testState.lastPrompt = null;
     delete process.env.DAILY_MODEL_CALL_CAP;
+    vi.unstubAllEnvs();
   });
 
   it("unauthenticated gets 401 and reserves nothing", async () => {
@@ -522,6 +579,74 @@ describe("POST /api/chat", () => {
       "SELECT role FROM messages ORDER BY created_at, id",
     );
     expect(messages.rows).toEqual([{ role: "user" }]);
+  });
+
+  it("primary 429 fails over to the OpenRouter backup and streams its answer", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+    testState.modelMode = "error429";
+    const res = await POST(chatRequest(bodyFor("hi")));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Hello from OpenRouter");
+    expect(body).not.toContain('"type":"error"');
+    // One usage record for the request (the failover is a retry of
+    // the same call, not a second call), and exactly one attempt on
+    // each provider.
+    expect(await usageCount(db, userId)).toBe(1);
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.backupCalls).toBe(1);
+    const messages = await db.query<{ role: string; content: string }>(
+      "SELECT role, content FROM messages ORDER BY created_at, id",
+    );
+    expect(messages.rows).toEqual([
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "Hello from OpenRouter" },
+    ]);
+  });
+
+  it("backup also failing → honest error, no reply persisted", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+    testState.modelMode = "error429";
+    testState.backupMode = "error500";
+    const res = await POST(chatRequest(bodyFor("hi")));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('"type":"error"');
+    expect(body).not.toContain("Hello from OpenRouter");
+    // Dispatched to the provider, so the call is counted, not refunded.
+    expect(await usageCount(db, userId)).toBe(1);
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.backupCalls).toBe(1);
+    const messages = await db.query<{ role: string }>(
+      "SELECT role FROM messages ORDER BY created_at, id",
+    );
+    expect(messages.rows).toEqual([{ role: "user" }]);
+  });
+
+  it("missing backup key → primary 429 surfaces honestly, backup never called", async () => {
+    testState.modelMode = "error429";
+    const res = await POST(chatRequest(bodyFor("hi")));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('"type":"error"');
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.backupCalls).toBe(0);
+    expect(await usageCount(db, userId)).toBe(1);
+  });
+
+  it("recovery → the next request starts on Groq again", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+    testState.modelMode = "error429";
+    const first = await POST(chatRequest(bodyFor("one")));
+    expect(await first.text()).toContain("Hello from OpenRouter");
+    expect(testState.backupCalls).toBe(1);
+
+    testState.modelMode = "ok";
+    const second = await POST(chatRequest(bodyFor("two")));
+    expect(second.status).toBe(200);
+    expect(await second.text()).toContain("Hello");
+    expect(testState.modelCalls).toBe(2);
+    expect(testState.backupCalls).toBe(1);
   });
 
   it("rejects an invalid body with 400 and reserves nothing", async () => {

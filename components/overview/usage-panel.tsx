@@ -16,6 +16,10 @@ export type UsageState =
       searchUsage?: number;
       /** The monthly search limit; absent when the health body predates the meter. */
       searchCap?: number;
+      /** The provider that answered the most recent model call
+       * ("groq" normally, "openrouter" after a failover answered);
+       * absent when the health body predates the provider chip. */
+      provider?: "groq" | "openrouter";
     };
 
 export type TaskTally = { done: number; total: number } | null;
@@ -124,6 +128,16 @@ export function UsagePanelView({
                 </span>
               </p>
             ) : null}
+            {state.kind === "ok" && state.provider !== undefined ? (
+              <p className="mt-2 text-sm text-text-secondary">
+                Provider:{" "}
+                <span className="text-text-primary">
+                  {state.provider === "openrouter"
+                    ? "OpenRouter (fallback — Groq failed)"
+                    : "Groq"}
+                </span>
+              </p>
+            ) : null}
           </div>
         </>
       )}
@@ -133,7 +147,7 @@ export function UsagePanelView({
 
 /** Reads the real figures from /api/health (no model call, no quota). */
 export function usageFromHealth(ok: boolean, body: unknown): UsageState {
-  const b = body as { usage?: unknown; cap?: unknown; searchUsage?: unknown; searchCap?: unknown } | null;
+  const b = body as { usage?: unknown; cap?: unknown; searchUsage?: unknown; searchCap?: unknown; provider?: unknown } | null;
   if (!ok || typeof b?.usage !== "number" || typeof b?.cap !== "number") return { kind: "unavailable" };
   return {
     kind: "ok",
@@ -141,6 +155,9 @@ export function usageFromHealth(ok: boolean, body: unknown): UsageState {
     cap: b.cap,
     ...(typeof b.searchUsage === "number" && typeof b.searchCap === "number"
       ? { searchUsage: b.searchUsage, searchCap: b.searchCap }
+      : {}),
+    ...(b.provider === "groq" || b.provider === "openrouter"
+      ? { provider: b.provider }
       : {}),
   };
 }

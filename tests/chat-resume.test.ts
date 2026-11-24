@@ -30,6 +30,9 @@ const testState = vi.hoisted(() => ({
   prompts: [] as unknown[],
   modelText: "The task is done.",
   throwOnCall: false,
+  throw429: false,
+  backupCalls: 0,
+  backupText: "Done via OpenRouter.",
   recordFails: false,
 }));
 
@@ -201,6 +204,13 @@ vi.mock("@ai-sdk/groq", async () => {
           if (testState.throwOnCall) {
             throw new Error("model unavailable");
           }
+          if (testState.throw429) {
+            const err = new Error("provider 429 rate limited") as Error & {
+              statusCode: number;
+            };
+            err.statusCode = 429;
+            throw err;
+          }
           // Explicitly typed: without the annotation, TS infers the chunk
           // union from the literals and widens finishReason to string.
           const chunks: import("@ai-sdk/provider").LanguageModelV4StreamPart[] = [
@@ -224,6 +234,35 @@ vi.mock("@ai-sdk/groq", async () => {
 });
 
 import { POST } from "@/app/api/chat/resume/route";
+
+// OpenRouter backup (failover test): answers with different text so
+// the test can tell which provider replied.
+vi.mock("@openrouter/ai-sdk-provider", async () => {
+  const { MockLanguageModelV4, simulateReadableStream } = await import("ai/test");
+  return {
+    createOpenRouter: () => () => {
+      return new MockLanguageModelV4({
+        doStream: async () => {
+          testState.backupCalls += 1;
+          const chunks: import("@ai-sdk/provider").LanguageModelV4StreamPart[] = [
+            { type: "text-start", id: "t1" },
+            { type: "text-delta", id: "t1", delta: testState.backupText },
+            { type: "text-end", id: "t1" },
+            {
+              type: "finish",
+              finishReason: { unified: "stop", raw: undefined },
+              usage: {
+                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 1, text: 1, reasoning: 0 },
+              },
+            },
+          ];
+          return { stream: simulateReadableStream({ chunks }) };
+        },
+      });
+    },
+  };
+});
 
 function resumeRequest(approvalId: string): Request {
   return new Request("http://localhost/api/chat/resume", {
@@ -271,8 +310,12 @@ describe("POST /api/chat/resume (M3-20)", () => {
     testState.prompts = [];
     testState.modelText = "The task is done.";
     testState.throwOnCall = false;
+    testState.throw429 = false;
+    testState.backupCalls = 0;
+    testState.backupText = "Done via OpenRouter.";
     testState.recordFails = false;
     delete process.env.DAILY_MODEL_CALL_CAP;
+    vi.unstubAllEnvs();
   });
 
   async function createConversation(): Promise<string> {
@@ -578,5 +621,23 @@ describe("POST /api/chat/resume (M3-20)", () => {
     expect(messages.map((m) => m.role)).toEqual(["tool", "system"]);
     expect(messages[1].content).toContain('The task "Buy milk" was created.');
     expect(messages[1].content).toContain("model reply failed");
+  });
+
+  it("primary 429 fails over to the OpenRouter backup for the follow-up", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+    testState.throw429 = true;
+    const conversationId = await createConversation();
+    const id = await driveToConsumed(conversationId, "Buy milk");
+    const res = await POST(resumeRequest(id));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Done via OpenRouter.");
+    expect(body).not.toContain('"type":"error"');
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.backupCalls).toBe(1);
+    expect(await usageCount(db, userId)).toBe(1);
+    const messages = await storedMessages();
+    expect(messages.map((m) => m.role)).toEqual(["tool", "assistant"]);
+    expect(messages[1].content).toBe("Done via OpenRouter.");
   });
 });

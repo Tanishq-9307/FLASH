@@ -75,6 +75,9 @@ describe("GET /api/health (usage meters)", () => {
     expect(body.cap).toBe(1000);
     expect(body.searchUsage).toBe(50);
     expect(body.searchCap).toBe(1000);
+    // No model call has happened in this process: the provider is
+    // the primary.
+    expect(body.provider).toBe("groq");
   });
 
   it("never reports limit_reached, even past the configured limit", async () => {

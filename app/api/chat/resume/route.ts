@@ -44,8 +44,8 @@ import {
   createUIMessageStreamResponse,
   streamText,
 } from "ai";
-import { groq } from "@ai-sdk/groq";
 import { z } from "zod";
+import { chatModel, createFailoverState } from "@/lib/ai/provider";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { usageDateToday } from "@/lib/config";
@@ -264,12 +264,17 @@ export async function POST(request: Request) {
   ].join(" ");
 
   let result: ReturnType<typeof streamText>;
+  // One backup attempt for this request; the next request starts on
+  // Groq again. maxRetries 0: the hot-swap inside chatModel is the
+  // only retry (see the chat route).
+  const failover = createFailoverState();
   try {
     result = streamText({
-      model: groq("llama-3.3-70b-versatile"),
+      model: chatModel(failover),
       instructions,
       messages: modelMessages,
       abortSignal: request.signal,
+      maxRetries: 0,
       // The history can contain system messages (the tool outcome,
       // rendered as system by dbMessagesToUIMessages). They are
       // written by this server into the database — trusted, never

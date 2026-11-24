@@ -123,6 +123,21 @@ describe("UsagePanelView and usageFromHealth", () => {
     expect(out).not.toContain("Search this month");
   });
 
+  it("provider chip: Groq normally, OpenRouter after a failover answered", () => {
+    const groq = html(
+      <UsagePanelView state={{ kind: "ok", usage: 3, cap: 20, provider: "groq" }} tasks={null} />,
+    );
+    expect(groq).toContain("Provider:");
+    expect(groq).toContain("Groq");
+    expect(groq).not.toContain("fallback");
+    const fallback = html(
+      <UsagePanelView state={{ kind: "ok", usage: 3, cap: 20, provider: "openrouter" }} tasks={null} />,
+    );
+    expect(fallback).toContain("OpenRouter (fallback");
+    const unknown = html(<UsagePanelView state={{ kind: "ok", usage: 3, cap: 20 }} tasks={null} />);
+    expect(unknown).not.toContain("Provider:");
+  });
+
   it("loading and unavailable states", () => {
     expect(html(<UsagePanelView state={{ kind: "loading" }} />)).toContain("Loading");
     const failed = html(<UsagePanelView state={{ kind: "unavailable" }} />);
@@ -132,6 +147,24 @@ describe("UsagePanelView and usageFromHealth", () => {
 
   it("usageFromHealth: anything but a well-formed 200 is unavailable", () => {
     expect(usageFromHealth(true, { usage: 2, cap: 20 })).toEqual({ kind: "ok", usage: 2, cap: 20 });
+    expect(usageFromHealth(true, { usage: 2, cap: 20, provider: "groq" })).toEqual({
+      kind: "ok",
+      usage: 2,
+      cap: 20,
+      provider: "groq",
+    });
+    expect(usageFromHealth(true, { usage: 2, cap: 20, provider: "openrouter" })).toEqual({
+      kind: "ok",
+      usage: 2,
+      cap: 20,
+      provider: "openrouter",
+    });
+    // An unknown provider string is dropped, never shown.
+    expect(usageFromHealth(true, { usage: 2, cap: 20, provider: "other" })).toEqual({
+      kind: "ok",
+      usage: 2,
+      cap: 20,
+    });
     expect(usageFromHealth(false, { usage: 2, cap: 20 })).toEqual({ kind: "unavailable" });
     expect(usageFromHealth(true, { error: "unauthenticated" })).toEqual({ kind: "unavailable" });
     expect(usageFromHealth(true, null)).toEqual({ kind: "unavailable" });
