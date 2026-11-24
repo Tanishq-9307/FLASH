@@ -558,7 +558,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Run the checkpoint routine.
 
 ### M2-9b · UI: Overview real-data wiring
-**Depends on:** M2-9a · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
+**Depends on:** M2-9a · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** every figure on the Overview is real.
 **Steps:** wire Usage & Limits (today's model calls against the cap, from the health route), Recent Notes, and Tasks to the database; a failed load shows "Unavailable", never zero. Panels for open approvals, capability chips, and activity stay hidden until M3-24b.
 **Done when:** no hardcoded values remain.

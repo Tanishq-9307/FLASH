@@ -4,7 +4,8 @@
 // panel renders as "Unavailable", never a zero (DESIGN.md §9). M3-dependent
 // panels (open approvals, capability chips, activity) stay hidden until
 // M3-24b. The UsagePanel fetches today's real figures from /api/health in
-// the browser; the Tasks-done gauge is wired to the real task list in M2-9b.
+// the browser, and the Tasks-done gauge gets its tally from the same real
+// task list (M2-9b).
 import { Overview } from "@/components/overview/overview";
 import { UsagePanel } from "@/components/overview/usage-panel";
 import { listTasks } from "@/app/tasks/actions";
@@ -15,9 +16,12 @@ export const metadata = { title: "Overview · FLASH" };
 
 export default async function Home() {
   const [tasks, notes] = await Promise.all([listTasks(), listNotes()]);
+  const tally = tasks.ok
+    ? { done: tasks.data.filter((t) => t.status === "completed").length, total: tasks.data.length }
+    : null;
   return (
     <Overview
-      usage={<UsagePanel />}
+      usage={<UsagePanel tasks={tally} />}
       tasks={tasks.ok ? tasks.data : null}
       notes={notes.ok ? notes.data : null}
       today={usageDateToday()}
