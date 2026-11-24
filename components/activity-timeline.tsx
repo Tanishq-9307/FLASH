@@ -142,7 +142,7 @@ export function ActivityTimeline({ rows }: { rows: ActivityLogRow[] | null }) {
             type="checkbox"
             checked={tamperOnly}
             onChange={(event) => setTamperOnly(event.target.checked)}
-            className="size-4 accent-[#00e5ff]"
+            className="size-4 accent-accent-cyan"
           />
           Tamper flags only
         </label>

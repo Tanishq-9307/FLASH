@@ -40,6 +40,18 @@ npm run dev
 - The daily cap is 20 model calls (PRD §6 [DECIDED]), overridable with `DAILY_MODEL_CALL_CAP` (see `lib/config.ts`); a bad override fails closed to 0.
 - After a production build, run `scripts/check-bundle.sh`: it fails if a secret key shape (`sb_secret_…`, `AIza…`), a secret variable name, or a literal secret value from `.env.local` appears in the client bundle (`.next/static`). The service-role key lives only on the server via `utils/supabase/admin.ts` (`import "server-only"`).
 
+## Demo script (M3 — the v0.1 demo)
+
+Needs a live deployment with a model key (not in this build — see PROGRESS.md M3-28 for the code-evidence basis).
+
+1. Ask FLASH to create a task ("Remind me to buy servo horns tomorrow"). The chat shows the exact action — tool, title, due date — in the approval dialog, with the risk badge and a countdown.
+2. Approve. The task is created; it appears on the Overview Tasks panel and the Tasks screen.
+3. Open Activity: the log shows the real result (succeeded, with the task id), never a claim.
+4. Refresh the page: the task is still there, from the database.
+5. Ask FLASH what tasks are pending: it retrieves them with the read-only `get_tasks` tool.
+
+Negative checks (all covered by tests; see PROGRESS.md M3-28): reject an approval; alter the stored parameters (`hash_mismatch`); let an approval expire; replay an approval; fire five parallel executions (exactly one succeeds); exhaust retries; propose a second action while one is open; save a memory without approval (never saved) and flip memory off (nothing is injected).
+
 ## Database workflow
 
 Migrations live in `supabase/migrations/` (one per task, plain-language header each). Create one with `npx supabase migration new <name>` (the Supabase CLI is a devDependency; it is never linked to a remote project in this build). SQL is validated locally with PGlite: `npm run test` applies the migrations to a fresh in-process database (PGlite 0.3.9) and runs the checks; database tests run with `APP_ENV=dev`. After changing migrations, regenerate types with `npm run gen:types` (writes `types/supabase.ts` from the migration-validated schema — see `scripts/gen-types.mjs`; no remote project needed) and commit the result. No remote Supabase project is created by this build; if the owner creates one later, migrations go there at milestone gates only (`supabase db push`, with the owner's confirmation, then relink to dev in the same session), then types are regenerated and committed. Never put a database password on the command line or in any file.

@@ -940,7 +940,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > List findings with severity and evidence; fix what is in scope and record accepted risks in PROGRESS.md. Run the full suite. Run the checkpoint routine.
 
 ### M3-28 · Milestone 3 gate: the demo
-**Depends on:** M3-0 to M3-27 (including the a, b, and 24b tasks) · **Status:** [ ]
+**Depends on:** M3-0 to M3-27 (including the a, b, and 24b tasks) · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** prove PRD.md Section 7 M3 end to end and deploy.
 **Steps:** run the full suite, lint, tsc, build, bundle check, and the DESIGN.md Section 10.2 visual review (including a contrast re-check on the built UI); perform and record evidence for the **demo** (ask FLASH to create a task; exact action shown; approve; task created; appears in dashboard; activity log shows the real result; survives refresh; FLASH retrieves it with the read-only tool) and **all eight tests**: rejected approval; altered parameters (`hash_mismatch`); expired approval; replayed approval; duplicate execution (parallel, exactly one succeeds); retry exhaustion; second proposal while one is open; memory (unapproved never saved; off switch stops injection); plus security tests (invalid arguments; database failures; API failures and rate limits; unauthorised access; injected text); production deployment (migrations, env vars, live smoke test of the demo); tag `v0.3.0`.
 **Done when:** every item evidenced.
