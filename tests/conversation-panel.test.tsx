@@ -149,4 +149,35 @@ describe("conversation panel (M2-7)", () => {
     );
     expect(screen.getByText("Second chat")).toBeInTheDocument();
   });
+
+  it("delete succeeds after the pending action is cancelled", async () => {
+    // First attempt: the guard refuses, with a link to the pending action.
+    mockDelete
+      .mockResolvedValueOnce({ ok: false, error: "open_approval" })
+      // Second attempt: the approval has been cancelled (the link above
+      // opens /chat?id=<id>, where the dialog cancels it), so the guard
+      // no longer refuses and the delete goes through.
+      .mockResolvedValueOnce({ ok: true, data: { id: ROWS[0].id } });
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Delete Second chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Cancel the pending action first.",
+      ),
+    );
+    expect(screen.getByRole("link", { name: "Open the pending action" })).toHaveAttribute(
+      "href",
+      `/chat?id=${ROWS[0].id}`,
+    );
+    expect(screen.getByText("Second chat")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Second chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(screen.queryByText("Second chat")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockDelete).toHaveBeenCalledTimes(2);
+  });
 });

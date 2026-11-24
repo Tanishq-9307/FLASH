@@ -882,7 +882,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read PRD.md Section 5.3 and DESIGN.md Section 5.1. Build the Memory screen and Settings toggle with Server Actions (auth, Zod limits), the privacy warning text from M3-0, and tests. Run the checkpoint routine.
 
 ### M3-24 · UI: delete guard handling
-**Depends on:** M3-21b · **Status:** [ ] code done 2026-11-07; test passes
+**Depends on:** M3-21b · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** a clear message when deletion is blocked.
 **Steps:** when the database refuses deleting a conversation with an open approval, show "Cancel the pending action first" with a link to it.
 **Tests:** blocked delete shows the message; delete succeeds after cancel.
