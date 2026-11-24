@@ -872,7 +872,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DESIGN.md Sections 5.6 and 9. Build the Activity screen from action_logs with all statuses, expandable parameters, tamper highlighting, and empty and error states, plus rendering tests. Run the checkpoint routine.
 
 ### M3-23 · UI: Memory screen and settings toggle
-**Depends on:** M3-16 · **Status:** [ ] code done 2026-11-07; rule tests pass; warning text matches the M3-0 decision (free tier, non-sensitive only)
+**Depends on:** M3-16 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** view, edit, delete memories; global switch.
 **Steps:** Memory list with edit and delete (Server Actions with limits); the memory toggle (upsert on first change); a visible warning about sensitive data reflecting the M3-0 decision; empty and error states.
 **Tests:** CRUD and validation; toggling off stops injection (links to M3-16 test).
