@@ -1161,7 +1161,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DESIGN.md Sections 5.4 and 9. Build the sources panel and failure notice with safe links and distinct styling from model text, plus tests. Run the checkpoint routine.
 
 ### M6-4 · Hostile page test and honesty tests
-**Depends on:** M6-2 · **Status:** [ ]
+**Depends on:** M6-2 · **Status:** [x] done 2026-11-24 (hostile search result + search-honesty tests in chat-tool-loop.test.ts, 2 tests; mocked model obeys the injection and the approval flow still stops it; a false search claim is disproved by the tool-call record)
 **Goal:** a hostile web page cannot cause an action, and "search happened" claims are true.
 **Steps:** fixture page text with injected instructions and an image-link exfiltration attempt; mocked model obeys; assert no unapproved execution and no leak; assert a reply that claims a search while none ran is impossible by construction (system prompt rule plus a test using the tool-call record).
 **Tests:** both scenarios.
