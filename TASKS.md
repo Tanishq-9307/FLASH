@@ -836,7 +836,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write the five mocked tests. Run the checkpoint routine.
 
 ### M3-21a · UI: approval dialog component
-**Depends on:** M3-15, M1-8 · **Status:** [ ] code done 2026-11-07; state, keyboard and literal-text tests pass
+**Depends on:** M3-15, M1-8 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** the critical component, built to DESIGN.md.
 **Steps:** per DESIGN.md 5.5: props-driven dialog showing the stored parameter snapshot as plain text in mono; risk badge from registry metadata; countdown from `expires_at` corrected by a server-provided "now"; Approve and Cancel; states active, executing, retryable error with attempts used, expired, failed, succeeded, rejected; focus trap and focus return; `role="timer"`.
 **Done when:** every state renders correctly from fixtures.
