@@ -519,7 +519,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Include empty and error states and action tests. Run the checkpoint routine.
 
 ### M2-8a · UI: tasks
-**Depends on:** M2-3 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
+**Depends on:** M2-3 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** I can manage tasks by hand.
 **Steps:** list with statuses and due dates; create, edit, complete, and delete through Server Actions (auth check, Zod limits equal to the database CHECKs); empty, loading, and error states (DESIGN.md 5.1).
 **Done when:** CRUD works and survives a refresh.
