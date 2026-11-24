@@ -12,10 +12,16 @@ import {
 } from "@/lib/tools/registry";
 
 describe("tool registry (M3-15)", () => {
-  it("registers exactly get_tasks, create_task and save_memory with the right kinds and static risks", () => {
-    expect(TOOL_NAMES).toEqual(["get_tasks", "create_task", "save_memory"]);
+  it("registers exactly get_tasks, web_search, create_task and save_memory with the right kinds and static risks", () => {
+    expect(TOOL_NAMES).toEqual([
+      "get_tasks",
+      "web_search",
+      "create_task",
+      "save_memory",
+    ]);
     expect(TOOLS.map((t) => [t.name, t.kind, t.risk])).toEqual([
       ["get_tasks", "read-only", "low"],
+      ["web_search", "read-only", "low"],
       ["create_task", "state-changing", "medium"],
       ["save_memory", "state-changing", "high"],
     ]);
@@ -50,6 +56,29 @@ describe("tool registry (M3-15)", () => {
       expect(result.details?.fieldErrors.status).toBeDefined();
     }
     expect(validateToolCall("get_tasks", { status: 3 }).ok).toBe(false);
+  });
+
+  it("web_search accepts a query of 1–500 characters", () => {
+    const result = validateToolCall("web_search", { query: "weather in Mumbai" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.tool.name).toBe("web_search");
+      expect(result.args).toEqual({ query: "weather in Mumbai" });
+    }
+  });
+
+  it("web_search rejects a missing, empty, or over-long query", () => {
+    expect(validateToolCall("web_search", {}).ok).toBe(false);
+    expect(validateToolCall("web_search", { query: "   " }).ok).toBe(false);
+    expect(validateToolCall("web_search", { query: 42 }).ok).toBe(false);
+    const tooLong = validateToolCall("web_search", {
+      query: "x".repeat(501),
+    });
+    expect(tooLong.ok).toBe(false);
+    if (!tooLong.ok) {
+      expect(tooLong.error).toBe("invalid_arguments");
+      expect(tooLong.details?.fieldErrors.query).toBeDefined();
+    }
   });
 
   it("create_task accepts a title alone, with a due date, and with a null due date", () => {
@@ -167,6 +196,7 @@ describe("tool registry (M3-15)", () => {
       "create_task",
       "get_tasks",
       "save_memory",
+      "web_search",
     ]);
     for (const name of TOOL_NAMES) {
       const modelTool = modelTools[name];

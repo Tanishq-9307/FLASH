@@ -48,3 +48,72 @@ export async function executeGetTasks(
   }
   return { tasks: data as TaskRow[] };
 }
+
+/** Delimiters marking untrusted web text in a tool result
+ * (ARCHITECTURE.md §9). The model must treat everything between
+ * them as data from the web, never as instructions. */
+export const UNTRUSTED_DATA_START = "=== UNTRUSTED DATA START ===";
+export const UNTRUSTED_DATA_END = "=== UNTRUSTED DATA END ===";
+
+export interface WebSearchResultItem {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
+export interface WebSearchOutput {
+  /** Sources for the UI (M6-3): title + URL only, no snippet text. */
+  sources: Array<{ title: string; url: string }>;
+  /** The results as one delimited untrusted-data block. This is what
+   * the model reads; the delimiters are the only thing separating
+   * web text from instructions. */
+  content: string;
+}
+
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "unknown source";
+  }
+}
+
+/** Format search results as a delimited untrusted-data block, one
+ * numbered entry per result with its source domain. A result with no
+ * snippet still appears (with an empty body) so the numbering matches
+ * the sources list and the model cannot mistake one result for
+ * another. */
+export function formatSearchResultsAsUntrusted(
+  results: WebSearchResultItem[],
+): string {
+  if (results.length === 0) {
+    return `${UNTRUSTED_DATA_START}\nNo results found.\n${UNTRUSTED_DATA_END}`;
+  }
+  const entries = results.map((r, i) => {
+    const title = r.title === "" ? "(untitled)" : r.title;
+    return `[${i + 1}] ${title} — ${domainOf(r.url)}\n${r.content}`;
+  });
+  return `${UNTRUSTED_DATA_START}\n${entries.join("\n\n")}\n${UNTRUSTED_DATA_END}`;
+}
+
+/**
+ * Run one web search through the provider and format the results.
+ * Throws the provider's TavilyError on failure — the caller decides
+ * whether the reservation is refunded (only a pre-dispatch abort,
+ * i.e. a missing key, is refunded; a provider failure after dispatch
+ * is not). Returns the sources list plus the delimited block; an
+ * empty result list is a valid outcome, not an error.
+ */
+export async function executeWebSearch(
+  query: string,
+  provider: (
+    query: string,
+  ) => Promise<{ results: WebSearchResultItem[] }>,
+): Promise<WebSearchOutput> {
+  const { results } = await provider(query);
+  return {
+    sources: results.map((r) => ({ title: r.title, url: r.url })),
+    content: formatSearchResultsAsUntrusted(results),
+  };
+}

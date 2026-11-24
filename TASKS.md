@@ -1141,7 +1141,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DATABASE.md Sections 3.2 and 5.1. Write one migration with a plain-language header for a search-usage table and reserve and refund functions mirroring the model cap, service_role only, with tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M6-2 · Search tool
-**Depends on:** M6-1, M3-17 · **Status:** [ ]
+**Depends on:** M6-1, M3-17 · **Status:** [x] done 2026-11-24 (Tavily adapter + web_search tool, 18 tests; searchCap default 10, bad value fails closed to 0; reserve before call, refund only pre-dispatch; results delimited as untrusted data)
 **Goal:** a real, logged, read-only search.
 **Steps:** provider adapter; read-only tool with schema; reserve a search before calling; results enter the prompt as delimited untrusted data; log via `log_read_only_action`; failures reported honestly; the model may never claim a search ran unless it did.
 **Tests:** quota respected; provider failure returns an honest error result; result text is delimited.

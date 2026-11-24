@@ -15,6 +15,19 @@ export function modelCallCap(): number {
   return value;
 }
 
+// Daily web-search cap: TECH_STACK.md §3.4 [DECIDED] and M6-0 fix the
+// cap at 10 searches per day (matching Tavily's free tier of 1,000
+// credits a month, at 1 credit per basic search), with an env
+// override DAILY_SEARCH_CAP. A bad override fails closed to 0 rather
+// than silently allowing unlimited searches.
+export function searchCap(): number {
+  const raw = process.env.DAILY_SEARCH_CAP;
+  if (raw === undefined || raw.trim() === "") return 10;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) return 0;
+  return value;
+}
+
 // Today's usage date on the Asia/Kolkata day boundary, matching
 // reserve_api_call in the database. Returned as YYYY-MM-DD.
 export function usageDateToday(): string {

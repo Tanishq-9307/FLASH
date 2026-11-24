@@ -15,12 +15,15 @@
 //     conversation, create_pending_approval returns
 //     open_approval_exists and the model gets a discarded error result
 //     instead, so it can ask the owner to resolve the open dialog.
-//   - read-only tool (get_tasks) → run the query with the
-//     user-scoped client, log the outcome via log_read_only_action
-//     (succeeded with the result, or failed with a generic error),
-//     and return the result to the model. A query failure is reported
-//     honestly as query_failed — never with database internals, and
-//     never with invented tasks.
+//   - read-only tool (get_tasks, web_search) → run with the
+//     user-scoped client (get_tasks) or the search provider
+//     (web_search, after reserving one search against the daily cap),
+//     log the outcome via log_read_only_action (succeeded with the
+//     result, or failed with a generic error), and return the result
+//     to the model. A query failure is reported honestly as
+//     query_failed, a search failure as search_unavailable, and a hit
+//     cap as search_cap_reached — never with internals, and never
+//     with invented tasks or results.
 //
 // The return is a discriminated outcome: either a tool-result part
 // for the model's next message, or an approval_created outcome the
@@ -30,10 +33,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ToolResultPart } from "ai";
 import type { Database } from "@/types/supabase";
-import { approvalTtlSeconds } from "@/lib/config";
+import { approvalTtlSeconds, searchCap } from "@/lib/config";
 import { toJson } from "@/lib/json";
+import {
+  searchTavily,
+  TavilyError,
+  type SearchProvider,
+} from "@/lib/search/tavily";
 import { validateToolCall } from "./registry";
-import { executeGetTasks } from "./read-only";
+import { executeGetTasks, executeWebSearch } from "./read-only";
 
 export interface ToolCallInput {
   toolCallId: string;
@@ -63,6 +71,13 @@ export interface ToolCallClients {
   supabase: SupabaseClient<Database>;
   /** Admin client (service role): for the audit log and approvals. */
   admin: SupabaseClient<Database>;
+}
+
+/** Injectable dependencies for tests. The search provider defaults
+ * to the real Tavily adapter; tests pass a fake so no network or key
+ * is needed. */
+export interface ToolCallDeps {
+  searchProvider?: SearchProvider;
 }
 
 function errorResult(
@@ -99,6 +114,7 @@ export async function executeToolCall(
   userId: string,
   conversationId: string,
   call: ToolCallInput,
+  deps: ToolCallDeps = {},
 ): Promise<ExecutedToolCall> {
   const validated = validateToolCall(call.toolName, call.input);
   if (!validated.ok) {
@@ -181,7 +197,113 @@ export async function executeToolCall(
     }
   }
 
-  // Read-only: get_tasks is the only read-only tool in the registry.
+  // Read-only, web_search: reserve one search first, then call the
+  // provider. The reserve is the cap: no row back means the daily
+  // limit is hit, so nothing is called and no log row is written —
+  // the same "nothing ran, nothing to audit" rule as invalid
+  // arguments. A reservation that fails at the database is reported
+  // honestly as search_unavailable and logged as a failure.
+  if (validated.tool.name === "web_search") {
+    const args = validated.args as { query: string };
+    const { data: reserved, error: reserveError } = await clients.admin.rpc(
+      "reserve_search",
+      { p_user_id: userId, p_cap: searchCap() },
+    );
+    if (reserveError !== null) {
+      console.error("Search reservation failed", reserveError);
+      try {
+        await clients.admin.rpc("log_read_only_action", {
+          p_user_id: userId,
+          p_conversation_id: conversationId,
+          p_tool_call_id: call.toolCallId,
+          p_tool: call.toolName,
+          p_params: toJson(validated.args),
+          p_status: "failed",
+          p_result: toJson({ error: "search_unavailable" }),
+        });
+      } catch (logErr) {
+        console.error("Failed to log read-only action", logErr);
+      }
+      return {
+        outcome: "tool_result",
+        result: errorResult(call, { error: "search_unavailable" }),
+        summary: "Called web_search. The search could not be reserved.",
+      };
+    }
+    if (reserved === null || reserved.length !== 1) {
+      return {
+        outcome: "tool_result",
+        result: errorResult(call, {
+          error: "search_cap_reached",
+          message: "The daily web-search limit has been reached.",
+        }),
+        summary: "Called web_search. The daily search limit has been reached.",
+      };
+    }
+    const usageDate = (reserved[0] as { usage_date: string }).usage_date;
+    try {
+      const output = await executeWebSearch(
+        args.query,
+        deps.searchProvider ?? searchTavily,
+      );
+      const outputJson = toJson(output);
+      await clients.admin.rpc("log_read_only_action", {
+        p_user_id: userId,
+        p_conversation_id: conversationId,
+        p_tool_call_id: call.toolCallId,
+        p_tool: call.toolName,
+        p_params: toJson(validated.args),
+        p_status: "succeeded",
+        p_result: outputJson,
+      });
+      return {
+        outcome: "tool_result",
+        result: {
+          type: "tool-result",
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          output: { type: "json", value: outputJson },
+        },
+        summary: `Called web_search for "${args.query}". Returned ${output.sources.length} result(s).`,
+      };
+    } catch (err) {
+      // A pre-dispatch abort (the provider key is missing) refunds
+      // the reservation: nothing was sent to the provider, so the
+      // search did not happen. A provider failure after dispatch is
+      // NOT refunded — the same rule as the model-call cap.
+      if (err instanceof TavilyError && err.code === "provider-misconfigured") {
+        try {
+          await clients.admin.rpc("refund_search", {
+            p_user_id: userId,
+            p_usage_date: usageDate,
+          });
+        } catch (refundErr) {
+          console.error("Failed to refund search reservation", refundErr);
+        }
+      }
+      try {
+        await clients.admin.rpc("log_read_only_action", {
+          p_user_id: userId,
+          p_conversation_id: conversationId,
+          p_tool_call_id: call.toolCallId,
+          p_tool: call.toolName,
+          p_params: toJson(validated.args),
+          p_status: "failed",
+          p_result: toJson({ error: "search_unavailable" }),
+        });
+      } catch (logErr) {
+        console.error("Failed to log read-only action", logErr);
+      }
+      console.error("Web search failed", err);
+      return {
+        outcome: "tool_result",
+        result: errorResult(call, { error: "search_unavailable" }),
+        summary: "Called web_search. The search provider could not be reached.",
+      };
+    }
+  }
+
+  // Read-only: get_tasks is the only remaining read-only tool.
   try {
     const output = await executeGetTasks(
       clients.supabase,
