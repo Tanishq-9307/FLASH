@@ -33,6 +33,71 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 const approvalIdSchema = z.string().uuid();
 
+/** The stored approval snapshot the dialog renders, with the server's
+ * clock at read time so the countdown can be corrected for a wrong
+ * browser clock (DESIGN.md §5.5). */
+export type ApprovalSnapshot = {
+  id: string;
+  toolName: string;
+  parameters: unknown;
+  status: string;
+  retryCount: number;
+  expiresAt: string;
+  serverNow: string;
+};
+
+export type ApprovalSnapshotResult =
+  | { ok: true; data: ApprovalSnapshot }
+  | {
+      ok: false;
+      error: "unauthenticated" | "invalid" | "not_found" | "unavailable";
+    };
+
+const SNAPSHOT_COLUMNS = "id, tool_name, parameters, status, retry_count, expires_at";
+
+/** Load the stored snapshot for one approval (M3-21b). User-scoped
+ * select: the row is filtered by the caller's user_id as well as the
+ * id, and RLS allows SELECT only, so a foreign id is indistinguishable
+ * from one that does not exist. */
+export async function getApprovalSnapshot(
+  approvalId: string,
+): Promise<ApprovalSnapshotResult> {
+  const parsed = approvalIdSchema.safeParse(approvalId);
+  if (!parsed.success) {
+    return { ok: false, error: "invalid" };
+  }
+  const supabase = await createClient();
+  const userId = await getUserId(supabase);
+  if (userId === null) {
+    return { ok: false, error: "unauthenticated" };
+  }
+  const { data, error } = await supabase
+    .from("tool_approvals")
+    .select(SNAPSHOT_COLUMNS)
+    .eq("id", parsed.data)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error !== null) {
+    console.error("getApprovalSnapshot failed", error);
+    return { ok: false, error: "unavailable" };
+  }
+  if (data === null) {
+    return { ok: false, error: "not_found" };
+  }
+  return {
+    ok: true,
+    data: {
+      id: data.id,
+      toolName: data.tool_name,
+      parameters: data.parameters,
+      status: data.status,
+      retryCount: data.retry_count,
+      expiresAt: data.expires_at,
+      serverNow: new Date().toISOString(),
+    },
+  };
+}
+
 export type ApprovalActionResult =
   | {
       ok: true;

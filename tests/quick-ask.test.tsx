@@ -30,6 +30,20 @@ vi.mock("@ai-sdk/react", () => ({
   useChat: () => chatState.current,
 }));
 
+// Chat renders the approval controller (M3-21b), which calls the Server
+// Actions. Those modules import server-only code, so they are mocked
+// here; the controller itself is covered in
+// tests/approval-controller.test.tsx.
+vi.mock("@/app/approvals/actions", () => ({
+  getApprovalSnapshot: vi.fn(),
+  executeAction: vi.fn(),
+  rejectAction: vi.fn(),
+}));
+
+vi.mock("@/app/chat/actions", () => ({
+  loadConversationMessages: vi.fn(async () => ({ ok: true, data: [] })),
+}));
+
 afterEach(() => {
   cleanup();
   pathnameMock.current = "/tasks";

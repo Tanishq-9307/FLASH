@@ -57,11 +57,28 @@ export default async function Page({
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
 
+  // M3-21b: an approval already open for this conversation (for
+  // example after following the delete-guard link) opens its dialog
+  // on arrival — the owner does not have to wait for a new stream.
+  // Expired rows do not count: they can no longer run.
+  let openApprovalId: string | null = null;
+  const { data: openApproval } = await supabase
+    .from("tool_approvals")
+    .select("id")
+    .eq("conversation_id", id)
+    .in("status", ["pending", "approved"])
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  openApprovalId = openApproval?.id ?? null;
+
   return panel(
     <Chat
       key={id}
       conversationId={id}
       initialMessages={dbMessagesToUIMessages(data ?? [])}
+      openApprovalId={openApprovalId}
     />,
   );
 }

@@ -120,6 +120,7 @@ function NavLink({
   active,
   className,
   indicator,
+  showBadge,
 }: {
   item: NavItem;
   active: boolean;
@@ -127,6 +128,8 @@ function NavLink({
   // Visible active marker besides colour (DESIGN.md §8): a cyan bar on the
   // rail's inner edge, or across the tab bar item's top edge.
   indicator: "left" | "top";
+  /** M3-21b: a badge while an approval is open (Activity item only). */
+  showBadge?: boolean;
 }) {
   const { Icon } = item;
   return (
@@ -145,13 +148,20 @@ function NavLink({
           }
         />
       )}
+      {showBadge ? (
+        <span
+          aria-hidden="true"
+          className="absolute top-2 right-3 size-2.5 rounded-full bg-warning"
+        />
+      ) : null}
       <Icon className="h-6 w-6" />
       <span>{item.label}</span>
+      {showBadge ? <span className="sr-only">Approval awaiting review</span> : null}
     </Link>
   );
 }
 
-export function NavRail() {
+export function NavRail({ hasOpenApproval = false }: { hasOpenApproval?: boolean }) {
   const pathname = usePathname();
   return (
     <nav
@@ -164,6 +174,7 @@ export function NavRail() {
           item={item}
           active={isActive(pathname, item.href)}
           indicator="left"
+          showBadge={hasOpenApproval && item.href === "/activity"}
           className="relative flex min-h-11 flex-1 flex-col items-center justify-center gap-1 py-2 text-xs"
         />
       ))}
@@ -171,7 +182,7 @@ export function NavRail() {
   );
 }
 
-export function MobileTabBar() {
+export function MobileTabBar({ hasOpenApproval = false }: { hasOpenApproval?: boolean }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -190,6 +201,7 @@ export function MobileTabBar() {
           item={{ ...item, label: item.shortLabel }}
           active={isActive(pathname, item.href)}
           indicator="top"
+          showBadge={hasOpenApproval && item.href === "/activity"}
           className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1 text-xs"
         />
       ))}

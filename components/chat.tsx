@@ -13,7 +13,7 @@
 // notices are aria-live assertive.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { APICallError, DefaultChatTransport } from "ai";
@@ -21,6 +21,13 @@ import type { UIMessage } from "ai";
 import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 import { useRefreshConversations } from "./conversations-context";
+import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
+import {
+  executeAction,
+  getApprovalSnapshot,
+  rejectAction,
+} from "@/app/approvals/actions";
+import { loadConversationMessages } from "@/app/chat/actions";
 
 function textOf(message: { parts?: unknown }): string {
   const parts = (message.parts ?? []) as Array<{ type?: string; text?: string }>;
@@ -33,12 +40,20 @@ function textOf(message: { parts?: unknown }): string {
 export default function Chat({
   initialMessages,
   conversationId,
+  openApprovalId,
 }: {
   initialMessages?: UIMessage[];
   conversationId?: string | null;
+  /** An approval already open for this conversation (loaded by the
+   * page, e.g. after following the delete-guard link): the dialog
+   * opens for it without waiting for a new stream. */
+  openApprovalId?: string | null;
 }) {
   const [input, setInput] = useState("");
   const router = useRouter();
+  // The approval the dialog is open for: from the chat stream's
+  // data-approval part, or from the page's openApprovalId prop.
+  const [approvalId, setApprovalId] = useState<string | null>(openApprovalId ?? null);
   // The conversation ID the transport sends with each request. Starts as
   // the ID the page loaded (if any); a new conversation's ID arrives in
   // the data part at the start of the first stream and lands here via
@@ -52,7 +67,7 @@ export default function Chat({
   // or updated_at moving the row to the top) — re-list from the server.
   const refreshConversations = useRefreshConversations();
 
-  const { messages, sendMessage, status, error, stop, regenerate } = useChat({
+  const { messages, sendMessage, setMessages, status, error, stop, regenerate } = useChat({
     messages: initialMessages,
     transport: new DefaultChatTransport({
       api: "/api/chat",
@@ -75,6 +90,17 @@ export default function Chat({
         if (typeof data.conversationId === "string") {
           setCurrentConversationId(data.conversationId);
           refreshConversations();
+        }
+      }
+      // M3-18/21b: the stream ends with an approval ID (data-approval).
+      // Show the dialog for it; the dialog renders the stored snapshot,
+      // never anything from the stream.
+      if (part.type === "data-approval") {
+        const data = part.data as { approvalId?: unknown };
+        if (typeof data.approvalId === "string") {
+          setApprovalId(data.approvalId);
+          // The layout's Activity badge is server-rendered: refresh it.
+          router.refresh();
         }
       }
     },
@@ -107,6 +133,20 @@ export default function Chat({
     clear();
     void sendMessage({ text });
   }, [pending, clear, sendMessage]);
+
+  // After an approval outcome is delivered, the resume follow-up is
+  // persisted server-side: reload the stored messages so the chat
+  // shows the real history, refresh the conversation list (the
+  // outcome moved updated_at) and the server-rendered nav badge.
+  const reloadAfterResolve = useCallback(async () => {
+    const id = currentConversationId;
+    if (id) {
+      const reloaded = await loadConversationMessages(id);
+      if (reloaded.ok) setMessages(reloaded.data);
+    }
+    refreshConversations();
+    router.refresh();
+  }, [currentConversationId, refreshConversations, router, setMessages]);
 
   const isStreaming = status === "streaming" || status === "submitted";
   const isCapReached =
@@ -186,6 +226,20 @@ export default function Chat({
           </button>
         </div>
       )}
+
+      {approvalId ? (
+        <ApprovalController
+          approvalId={approvalId}
+          actions={{
+            getApproval: getApprovalSnapshot,
+            executeAction,
+            rejectAction,
+            resume: resumeApproval,
+          }}
+          onResolved={() => void reloadAfterResolve()}
+          onClose={() => setApprovalId(null)}
+        />
+      ) : null}
 
       <form onSubmit={submit} className="mt-6 flex gap-2">
         <label htmlFor="chat-composer" className="sr-only">

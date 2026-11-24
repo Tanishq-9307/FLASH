@@ -849,7 +849,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add state, keyboard, and literal-text tests using fixtures. Run the checkpoint routine.
 
 ### M3-21b · UI: approval dialog wiring
-**Depends on:** M3-21a, M3-19, M3-20 · **Status:** [ ] code done 2026-11-07; mocked tests pass, browser demo after keys + SQL
+**Depends on:** M3-21a, M3-19, M3-20 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** the dialog works end to end.
 **Steps:** load the approval snapshot with a user-scoped select; connect Approve and Cancel to the Server Actions; show retry and failure states from the real result codes; trigger the resume call when a final state is reached or the countdown hits zero; show the dialog when the chat stream ends with an approval ID; show a badge on the Activity navigation item while an approval is open.
 **Done when:** the demo flow works in the browser (propose, approve, see the result).

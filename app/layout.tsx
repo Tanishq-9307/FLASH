@@ -41,6 +41,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // M3-21b: the Activity badge shows while an approval is open.
+  // Server-rendered per navigation; the chat screen refreshes the
+  // layout when a new approval arrives. Expired rows do not count.
+  let hasOpenApproval = false;
+  if (user) {
+    const { data } = await supabase
+      .from("tool_approvals")
+      .select("id")
+      .eq("user_id", user.id)
+      .in("status", ["pending", "approved"])
+      .gt("expires_at", new Date().toISOString())
+      .limit(1);
+    hasOpenApproval = (data?.length ?? 0) > 0;
+  }
+
   return (
     <html
       lang="en"
@@ -54,12 +69,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           state, never in the URL. */}
       <body className="min-h-full">
         <QuickAskProvider>
-          <NavRail />
+          <NavRail hasOpenApproval={hasOpenApproval} />
           <div className="pb-16 md:pb-0 md:pl-[88px]">
             <Header userEmail={user?.email ?? null} />
             {children}
           </div>
-          <MobileTabBar />
+          <MobileTabBar hasOpenApproval={hasOpenApproval} />
         </QuickAskProvider>
       </body>
     </html>

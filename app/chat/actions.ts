@@ -16,8 +16,10 @@
 "use server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UIMessage } from "ai";
 import type { Database } from "@/types/supabase";
 import { createClient } from "@/utils/supabase/server";
+import { dbMessagesToUIMessages } from "@/lib/chat-history";
 import {
   conversationIdSchema,
   conversationTitleSchema,
@@ -115,4 +117,30 @@ export async function deleteConversation(
     return { ok: false, error: "not_found" };
   }
   return { ok: true, data: { id: id.data } };
+}
+
+/** Reload a conversation's stored messages as UI messages (M3-21b).
+ * Used after an approval outcome is delivered (the resume follow-up
+ * is persisted server-side) so the chat shows the real history
+ * without a full page reload. Same ownership rules as the list: the
+ * rows are filtered by the caller's user_id and RLS. */
+export async function loadConversationMessages(
+  conversationId: string,
+): Promise<ConversationActionResult<UIMessage[]>> {
+  const id = conversationIdSchema.safeParse(conversationId);
+  if (!id.success) return { ok: false, error: "invalid" };
+
+  const supabase = await createClient();
+  const userId = await getUserId(supabase);
+  if (!userId) return { ok: false, error: "unauthenticated" };
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, role, content, parts")
+    .eq("conversation_id", id.data)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+  if (error || !data) return { ok: false, error: "unavailable" };
+  return { ok: true, data: dbMessagesToUIMessages(data) };
 }

@@ -114,3 +114,27 @@ describe("navigation shell", () => {
     expect(within(tabBar).getByRole("menu")).toBeDefined();
   });
 });
+
+describe("open-approval badge (M3-21b)", () => {
+  it("shows a badge on the Activity item on both rail and tab bar while an approval is open", () => {
+    render(
+      <>
+        <NavRail hasOpenApproval />
+        <MobileTabBar hasOpenApproval />
+      </>,
+    );
+    const rail = screen.getByRole("navigation", { name: "Primary" });
+    const tabBar = screen.getByRole("navigation", { name: "Mobile" });
+    expect(within(rail).getByRole("link", { name: /Activity.*Approval awaiting review/ })).toBeDefined();
+    expect(within(tabBar).getByRole("link", { name: /Activity.*Approval awaiting review/ })).toBeDefined();
+    // No other item carries the badge.
+    expect(within(rail).getByRole("link", { name: "Overview" }).textContent).not.toContain("Approval awaiting review");
+  });
+
+  it("shows no badge when no approval is open", () => {
+    const { rail, tabBar } = renderNav();
+    expect(screen.queryByText("Approval awaiting review")).toBeNull();
+    expect(within(rail).getByRole("link", { name: "Activity" }).textContent).not.toContain("Approval awaiting review");
+    expect(within(tabBar).getByRole("link", { name: "Activity" }).textContent).not.toContain("Approval awaiting review");
+  });
+});
