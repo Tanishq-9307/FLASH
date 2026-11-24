@@ -110,6 +110,7 @@ Facts confirmed in official documentation (read 2026-10-16):
 - Choice: Tavily, `search_depth: basic` (1 credit), at most 5 results, snippets only (`include_raw_content: false`, `include_answer: false`, so no third-party model text and less injected text).
 - Our own cap: **10 searches per day** (`Asia/Kolkata` day, env `DAILY_SEARCH_CAP`, default 10), at most 300 a month, well under the 1,000 free credits even if a month has extra retries. Each search also costs at least two model calls from the daily cap of 20, so 10 searches is the practical ceiling anyway.
 - Key: `TAVILY_API_KEY`, server-only (never `NEXT_PUBLIC_`), set by the owner in Vercel (Sensitive) and `.env.local`.
+- Re-verified 2026-11-24 (M6-0): Tavily's pricing page still lists the Researcher plan as free — 1,000 API credits/month, no credit card, basic search 1 credit, advanced 2, 100 requests/minute on development keys, credits reset on the 1st of the month. Alternative re-checked: Exa ($10/month free credit on the first team plus a $10 one-time onboarding bonus, verified 13 Nov 2026) — rejected: a smaller free allowance than Tavily's 1,000 credits, and dollar-based billing. The Brave rejection above stands. Choice and cap unchanged.
 
 ### 3.5 Speech (M4)
 - The browser's built-in speech recognition and synthesis are free. Quality and available voices vary by browser, operating system, and device; a British voice may not exist on every machine. Research and test in M4-0 on the real devices. Speech synthesis exposes no audio stream, so the speaking animation is scripted (DESIGN.md Section 6).
@@ -150,5 +151,4 @@ Facts confirmed in official documentation (read 2026-10-16):
   - `pdfjs-dist` 6.5 (Mozilla, Apache-2.0): the underlying engine; usable directly but needs worker and font setup in a serverless function. `unpdf` packages that setup.
   - `pdf-parse` 2.4.5 (Apache-2.0): last published 2025-10-29 and depends on `@napi-rs/canvas`, a native module, which adds size and native-binary risk on Vercel.
   - Memory: a 4 MB, 300-page cap keeps one extraction well inside the 2 GB Hobby function memory (Section 3.1).
-- [OPEN] Search provider and its limits (M6-0).
 

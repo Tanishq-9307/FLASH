@@ -1122,7 +1122,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 6: WEB RESEARCH
 
 ### M6-0 · Decision gate: search provider
-**Depends on:** M5-7 · **Status:** [ ]
+**Depends on:** M5-7 · **Status:** [x] verified 2026-11-24 (Tavily Researcher still free, 1,000 credits/mo, no card; Exa checked, rejected); recorded WITHOUT waiting on M5-7 (the M5-7 gate is deferred with the UI pass; the choice was already decided by the owner 2026-11-07 and only needed re-verification)
 **Goal:** choose a free provider with known limits.
 **Steps:** verify current free limits and terms for Tavily and one alternative from official pages; choose; record; decide the daily search cap.
 **Docs/Commit:** TECH_STACK.md Section 3.4 · `chore: resolve M6 search gate`
