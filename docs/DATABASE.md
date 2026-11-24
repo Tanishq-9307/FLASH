@@ -46,6 +46,11 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 - Primary key `(user_id, usage_date)`.
 - RLS: SELECT only. Writes only through `reserve_api_call` and `refund_api_call`.
 
+### 3.2a `search_usage` (M6)
+- Columns: `user_id uuid NOT NULL DEFAULT auth.uid()` (FK, cascade), `usage_date date NOT NULL`, `searches int NOT NULL DEFAULT 0 CHECK (searches >= 0)`.
+- Primary key `(user_id, usage_date)`.
+- RLS: SELECT only. Writes only through `reserve_search` and `refund_search` (DATABASE.md §5.1). The reserve INSERT is conditional on the cap being at least 1, so a cap of 0 fails closed on a fresh day (M3-27 lesson, built in from the start).
+
 ### 3.3 `conversations` (M2)
 - Columns: `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, `user_id` (FK, cascade), `title text NOT NULL CHECK (char_length(title) <= 255)`, `created_at`, `updated_at` (both `timestamptz NOT NULL DEFAULT now()`).
 - Constraints: `UNIQUE (id, user_id)`.

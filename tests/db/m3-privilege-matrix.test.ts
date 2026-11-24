@@ -34,9 +34,10 @@ function argTypes(identityArgs: string): string {
 // Expected API functions: name -> argument list (as
 // pg_get_function_identity_arguments reports it) and which roles may
 // execute. The M3 task counts 12 functions (9 service-role + 3
-// authenticated); save_document_extraction (M5, service-role) is also
-// in this database, so the catalog covers 13 — a function missing
-// from this map fails the test.
+// authenticated); save_document_extraction (M5, service-role) and
+// reserve_search / refund_search (M6, service-role) are also in this
+// database, so the catalog covers 15 — a function missing from this
+// map fails the test.
 const EXPECTED_FUNCTIONS: Record<
   string,
   {
@@ -56,6 +57,20 @@ const EXPECTED_FUNCTIONS: Record<
     service_role: true,
   },
   refund_api_call: {
+    args: "uuid, date",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  reserve_search: {
+    args: "uuid, integer",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  refund_search: {
     args: "uuid, date",
     secdef: true,
     anon: false,
@@ -164,6 +179,7 @@ const EXPECTED_TABLES = [
   "memories",
   "messages",
   "notes",
+  "search_usage",
   "settings",
   "tasks",
   "tool_approvals",
@@ -270,7 +286,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it("RLS is enabled on every table, and the table set is exactly the expected 11", async () => {
+  it("RLS is enabled on every table, and the table set is exactly the expected 12", async () => {
     const rows = await db.query<{ name: string; rls: boolean }>(
       `SELECT c.relname AS name, c.relrowsecurity AS rls
          FROM pg_class c
@@ -380,7 +396,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
     const policies = await db.query<{ table: string; cmd: string }>(
       `SELECT tablename AS "table", cmd FROM pg_policies
         WHERE schemaname = 'public'
-          AND tablename IN ('tool_approvals', 'action_logs', 'api_usage')`,
+          AND tablename IN ('tool_approvals', 'action_logs', 'api_usage', 'search_usage')`,
     );
     expect(policies.rows.length).toBeGreaterThan(0);
     for (const policy of policies.rows) {
@@ -388,7 +404,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
     }
 
     // Grant catalog: authenticated can SELECT but not write.
-    for (const table of ["tool_approvals", "action_logs", "api_usage"]) {
+    for (const table of ["tool_approvals", "action_logs", "api_usage", "search_usage"]) {
       for (const priv of ["INSERT", "UPDATE", "DELETE"] as const) {
         const r = await db.query<{ ok: boolean }>(
           "SELECT has_table_privilege('authenticated', $1, $2) AS ok",

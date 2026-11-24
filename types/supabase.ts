@@ -363,6 +363,25 @@ export type Database = {
         Relationships: [
         ]
       }
+      search_usage: {
+        Row: {
+          user_id: string
+          usage_date: string
+          searches: number
+        }
+        Insert: {
+          user_id?: string
+          usage_date: string
+          searches?: number
+        }
+        Update: {
+          user_id?: string
+          usage_date?: string
+          searches?: number
+        }
+        Relationships: [
+        ]
+      }
       settings: {
         Row: {
           user_id: string
@@ -633,6 +652,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      refund_search: {
+        Args: {
+          p_user_id: string | null
+          p_usage_date: string | null
+        }
+        Returns: undefined
+      }
       reject_action: {
         Args: {
           p_approval_id: string | null
@@ -645,6 +671,13 @@ export type Database = {
           p_cap: number | null
         }
         Returns: { model_calls: number; usage_date: string }[]
+      }
+      reserve_search: {
+        Args: {
+          p_user_id: string | null
+          p_cap: number | null
+        }
+        Returns: { searches: number; usage_date: string }[]
       }
       save_document_extraction: {
         Args: {

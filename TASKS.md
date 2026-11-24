@@ -1131,7 +1131,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read TECH_STACK.md Section 3.4. Verify current free-tier limits and terms for Tavily and one alternative on official pages, propose a choice and a daily cap, and record them. Run the checkpoint routine.
 
 ### M6-1 · Migration: search quota
-**Depends on:** M6-0 · **Status:** [ ]
+**Depends on:** M6-0 · **Status:** [x] done 2026-11-24 (search_usage + reserve/refund, 11 tests; cap-0 fail-closed built in)
 **Goal:** a search counter like the model cap.
 **Steps:** table and functions mirroring `api_usage` and `reserve_api_call` for searches (service_role only), with tests mirroring M1-5.
 **Tests:** parallel reservations never exceed the cap; clients denied.
