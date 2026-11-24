@@ -29,7 +29,10 @@ export async function proxy(request: NextRequest) {
   request.headers.set("Content-Security-Policy", csp);
   const { response, user } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
-  if (!user && pathname !== "/login") {
+  // /auth/callback must stay reachable while logged out: it is where the
+  // GitHub OAuth return lands, and the exchange there is what creates
+  // the session.
+  if (!user && pathname !== "/login" && pathname !== "/auth/callback") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirectResponse = NextResponse.redirect(url);
