@@ -928,7 +928,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Write tests where a mocked model obeys hostile text from a note, a memory, and a tool result; assert nothing executes without approval. Run the checkpoint routine.
 
 ### M3-27 · Security review pass
-**Depends on:** M3-25, M3-26 · **Status:** [ ] code review done 2026-11-07; live DB checks due after the M3 SQL is applied
+**Depends on:** M3-25, M3-26 · **Status:** [x] review done 2026-11-24 (cap-0 hole found + fixed, 4 tests); push pending
 **Goal:** a structured review before the demo.
 **Steps:** follow the security-review skill checklist; verify each function's grants, the approval flow, ownership, secrets, error messages (no stack traces), logs redaction, rate cap, and bundle check; list findings with severity; fix or consciously accept each; record in PROGRESS.md. Distinguish tested protections from unverified assumptions.
 **Done when:** findings recorded and resolved or accepted in writing.
