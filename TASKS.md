@@ -507,7 +507,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add the four tests. Run the checkpoint routine.
 
 ### M2-7 · UI: conversations list
-**Depends on:** M2-6 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
+**Depends on:** M2-6 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** list, switch, rename, delete conversations.
 **Steps:** list ordered by `updated_at` (280px panel, collapsible, per DESIGN.md 5.1); Server Actions for rename and delete (each calls `getUser()`, validates input); empty and error states.
 **Done when:** switching loads history; delete removes the conversation.

@@ -20,6 +20,7 @@ import { APICallError, DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
+import { useRefreshConversations } from "./conversations-context";
 
 function textOf(message: { parts?: unknown }): string {
   const parts = (message.parts ?? []) as Array<{ type?: string; text?: string }>;
@@ -47,6 +48,9 @@ export default function Chat({
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(
     conversationId ?? null,
   );
+  // A new conversation or a finished reply changes the list (a new row,
+  // or updated_at moving the row to the top) — re-list from the server.
+  const refreshConversations = useRefreshConversations();
 
   const { messages, sendMessage, status, error, stop, regenerate } = useChat({
     messages: initialMessages,
@@ -70,10 +74,12 @@ export default function Chat({
         const data = part.data as { conversationId?: unknown };
         if (typeof data.conversationId === "string") {
           setCurrentConversationId(data.conversationId);
+          refreshConversations();
         }
       }
     },
     onFinish: () => {
+      refreshConversations();
       // A new conversation now has an ID: move to its URL so a refresh
       // reloads it from the database instead of starting over.
       if (currentConversationId && currentConversationId !== conversationId) {
