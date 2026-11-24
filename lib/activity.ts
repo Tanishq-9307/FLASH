@@ -22,6 +22,11 @@ export const ACTIVITY_STATUSES = [
 ] as const;
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 
+/** Most rows the timeline ever loads (M3-22). Lives here, not in the
+ * Server Action module: "use server" files may only export async
+ * functions, so a shared constant breaks the production build. */
+export const ACTIVITY_LIMIT = 100;
+
 /** Icon (text glyph, never colour alone), label, and colour class per status. */
 export function statusMeta(status: string): {
   icon: string;

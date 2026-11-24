@@ -8,10 +8,15 @@ const button =
  * Quick actions (DESIGN.md 2 and 5.8). M2 ships New task and New note,
  * each opening the real form on the Tasks & Notes screen. Review approval
  * appears only while one is open (M3-24b) and Start voice arrives in M4 —
- * neither is shown yet (DESIGN.md 9.6: features that do not exist yet are
- * not shown as buttons).
+ * Start voice is not shown yet (DESIGN.md 9.6: features that do not exist
+ * yet are not shown as buttons).
  */
-export function QuickActions() {
+export function QuickActions({
+  openApproval,
+}: {
+  /** The first open approval, or null when none is open. */
+  openApproval?: { conversationId: string | null } | null;
+}) {
   return (
     <Panel title="Quick Actions" tourId="quick-actions">
       <div className="grid grid-cols-2 gap-2">
@@ -44,6 +49,24 @@ export function QuickActions() {
           </svg>
           New note
         </Link>
+        {openApproval ? (
+          <Link
+            href={openApproval.conversationId ? `/chat?id=${openApproval.conversationId}` : "/chat"}
+            className={button}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+              className="size-4"
+            >
+              <path d="m5 12.5 4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Review approval
+          </Link>
+        ) : null}
       </div>
     </Panel>
   );

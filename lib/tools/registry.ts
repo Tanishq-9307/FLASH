@@ -204,6 +204,45 @@ export function getTool(name: string): ToolDefinition | undefined {
   return TOOLS.find((t) => t.name === name);
 }
 
+/** One capability chip (DESIGN.md §2/§5.8): a registered tool and
+ * whether it can actually run right now. The chips come from the
+ * registry, never from a fixed list, so a tool added to the allowlist
+ * appears on the Overview and a removed one disappears — the UI
+ * cannot claim a capability the model does not have. */
+export type CapabilityChip = {
+  name: ToolName;
+  label: string;
+  kind: ToolKind;
+  available: boolean;
+  /** Why it is unavailable, or "available". Shown greyed on the chip. */
+  state: string;
+};
+
+/** Server-only: reads process.env, so call it from a Server Component
+ * (the Overview page), never from the browser. Today only web_search
+ * has an external dependency — it needs TAVILY_API_KEY; the other
+ * three tools run on the database alone and are always available. */
+export function getCapabilityChips(): CapabilityChip[] {
+  return TOOLS.map((tool) => {
+    if (tool.name === "web_search" && !process.env.TAVILY_API_KEY) {
+      return {
+        name: tool.name,
+        label: tool.displayLabel,
+        kind: tool.kind,
+        available: false,
+        state: "unavailable — no search API key",
+      };
+    }
+    return {
+      name: tool.name,
+      label: tool.displayLabel,
+      kind: tool.kind,
+      available: true,
+      state: "available",
+    };
+  });
+}
+
 export function isKnownTool(name: string): name is ToolName {
   return getTool(name) !== undefined;
 }

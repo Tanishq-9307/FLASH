@@ -9,7 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { createClient } from "@/utils/supabase/server";
-import type { ActivityLogRow } from "@/lib/activity";
+import { ACTIVITY_LIMIT, type ActivityLogRow } from "@/lib/activity";
 
 export type ActivityActionError = "unauthenticated" | "unavailable";
 
@@ -19,9 +19,6 @@ export type ActivityActionResult =
 
 const COLUMNS =
   "id, tool_name, parameters, execution_status, result_payload, created_at, approval_id, conversation_id";
-
-/** Most rows the timeline ever loads. */
-export const ACTIVITY_LIMIT = 100;
 
 async function getUserId(
   supabase: SupabaseClient<Database>,

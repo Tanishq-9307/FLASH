@@ -98,6 +98,57 @@ export async function getApprovalSnapshot(
   };
 }
 
+/** One approval still waiting for the owner (M3-24b): the Overview's
+ * gauge, the "Awaiting your approval" card, and the Review approval
+ * action. The conversation id is what the review link opens — the
+ * chat page loads that conversation's open approval into the dialog
+ * (M3-21b). */
+export type OpenApproval = {
+  id: string;
+  toolName: string;
+  conversationId: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type OpenApprovalsResult =
+  | { ok: true; data: OpenApproval[] }
+  | { ok: false; error: "unauthenticated" | "unavailable" };
+
+const OPEN_COLUMNS = "id, tool_name, conversation_id, created_at, expires_at";
+
+/** The owner's pending approvals, oldest first. User-scoped select,
+ * like the snapshot: RLS allows SELECT only, so another owner's rows
+ * never appear. At most one can be open at a time (the tool loop
+ * refuses a second proposal while one is pending, M3-18), so this is
+ * normally zero or one rows. */
+export async function listOpenApprovals(): Promise<OpenApprovalsResult> {
+  const supabase = await createClient();
+  const userId = await getUserId(supabase);
+  if (userId === null) {
+    return { ok: false, error: "unauthenticated" };
+  }
+  const { data, error } = await supabase
+    .from("tool_approvals")
+    .select(OPEN_COLUMNS)
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  if (error !== null || data === null) {
+    return { ok: false, error: "unavailable" };
+  }
+  return {
+    ok: true,
+    data: data.map((row) => ({
+      id: row.id,
+      toolName: row.tool_name,
+      conversationId: row.conversation_id,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    })),
+  };
+}
+
 export type ApprovalActionResult =
   | {
       ok: true;

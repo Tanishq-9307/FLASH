@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { timestampToDueDay, type Task } from "@/lib/tasks";
+import { formatActivityTime } from "@/lib/activity";
+import { getTool } from "@/lib/tools/registry";
+import type { OpenApproval } from "@/app/approvals/actions";
 import { Panel, Unavailable } from "./panel";
 
 const SHOWN = 5;
@@ -11,8 +14,19 @@ function formatDay(day: string): string {
   );
 }
 
-/** Tasks (DESIGN.md 2): pending first with due dates; completed counted. null = failed load. */
-export function TasksPanel({ tasks, today }: { tasks: Task[] | null; today: string }) {
+/** Tasks (DESIGN.md 2): pending first with due dates; completed counted. null = failed load.
+ * An open approval adds the "Awaiting your approval" card at the top (DESIGN.md §2);
+ * a null approvals prop means that load failed — the card is absent and the
+ * Usage & Limits gauge reports it as Unavailable instead. */
+export function TasksPanel({
+  tasks,
+  today,
+  openApprovals,
+}: {
+  tasks: Task[] | null;
+  today: string;
+  openApprovals?: OpenApproval[] | null;
+}) {
   const open = tasks?.filter((t) => t.status === "pending") ?? [];
   const doneCount = (tasks?.length ?? 0) - open.length;
   return (
@@ -28,6 +42,29 @@ export function TasksPanel({ tasks, today }: { tasks: Task[] | null; today: stri
         </Link>
       }
     >
+      {openApprovals && openApprovals.length > 0 ? (
+        <div className="mb-3 rounded-md border border-warning/50 bg-surface-raised p-3">
+          <p className="font-display text-base font-semibold tracking-[0.06em] text-warning uppercase">
+            Awaiting your approval
+          </p>
+          {openApprovals.map((approval) => (
+            <div key={approval.id} className="mt-2 flex items-center justify-between gap-3">
+              <p className="min-w-0 text-sm text-text-primary">
+                <span className="font-mono">
+                  {getTool(approval.toolName)?.displayLabel ?? approval.toolName}
+                </span>{" "}
+                · proposed {formatActivityTime(approval.createdAt)}
+              </p>
+              <Link
+                href={approval.conversationId ? `/chat?id=${approval.conversationId}` : "/chat"}
+                className="flex min-h-11 shrink-0 items-center rounded-md border border-accent-cyan/30 px-3 text-sm text-accent-cyan"
+              >
+                Review approval
+              </Link>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {tasks === null ? (
         <Unavailable what="Tasks" />
       ) : tasks.length === 0 ? (

@@ -3,6 +3,11 @@
 import { useState, type CSSProperties } from "react";
 import type { Note } from "@/lib/notes";
 import type { Task } from "@/lib/tasks";
+import type { ActivityLogRow } from "@/lib/activity";
+import type { CapabilityChip } from "@/lib/tools/registry";
+import type { OpenApproval } from "@/app/approvals/actions";
+import { ActivityPanel } from "./activity-panel";
+import { CapabilityChips } from "./capability-chips";
 import { NotesPanel } from "./notes-panel";
 import { OrbPanel } from "./orb";
 import { QuickActions } from "./quick-actions";
@@ -15,8 +20,9 @@ import { TOUR_STEPS, Tour } from "./tour";
  * centre orb, right panels). 768 to 1279px: orb full width on top, panels in
  * two columns. Below 768px: one column, smaller orb.
  * Every panel takes its data through props; null means "failed to load".
- * M3-dependent panels (open approvals, capability chips, activity) stay
- * hidden until M3-24b.
+ * The M3 panels (open approvals, capability chips, activity) are wired in
+ * M3-24b; an undefined prop means the caller did not supply that panel
+ * (older tests) and it is not rendered.
  *
  * Motion (DESIGN.md 7): the zones enter with a staggered rise; the cinematic
  * boot overlay plays once per session; the guided tour replays the entrance
@@ -27,11 +33,20 @@ export function Overview({
   tasks,
   notes,
   today,
+  openApprovals,
+  activity,
+  chips,
 }: {
   usage: React.ReactNode;
   tasks: Task[] | null;
   notes: Note[] | null;
   today: string;
+  /** Pending approvals, or null when the load failed. */
+  openApprovals?: OpenApproval[] | null;
+  /** Latest activity rows, or null when the load failed. */
+  activity?: ActivityLogRow[] | null;
+  /** Capability chips from the registry, or null when the load failed. */
+  chips?: CapabilityChip[] | null;
 }) {
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -57,6 +72,11 @@ export function Overview({
           style={{ "--enter-delay": "0ms" } as CSSProperties}
         >
           <OrbPanel tourOrbState={tourOpen ? TOUR_STEPS[tourStep].orbState : undefined} onTakeTour={startTour} />
+          {chips !== undefined ? (
+            <div className="mt-4">
+              <CapabilityChips chips={chips} />
+            </div>
+          ) : null}
         </div>
         <div
           className="flash-enter flex flex-col gap-4 xl:order-1 [&>*:last-child]:flex-1"
@@ -69,8 +89,11 @@ export function Overview({
           className="flash-enter flex flex-col gap-4 xl:order-3 [&>*:nth-child(2)]:flex-1"
           style={{ "--enter-delay": "240ms" } as CSSProperties}
         >
-          <TasksPanel tasks={tasks} today={today} />
-          <QuickActions />
+          <TasksPanel tasks={tasks} today={today} openApprovals={openApprovals} />
+          <QuickActions
+            openApproval={openApprovals && openApprovals.length > 0 ? openApprovals[0] : null}
+          />
+          {activity !== undefined ? <ActivityPanel rows={activity} /> : null}
         </div>
       </div>
     </>

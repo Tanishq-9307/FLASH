@@ -892,7 +892,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DATABASE.md Section 3.3. Handle the delete-guard error in the conversation delete action and show the cancel-first message with a link; add tests. Run the checkpoint routine.
 
 ### M3-24b · UI: Overview M3 wiring
-**Depends on:** M3-15, M3-21b, M3-22, M2-9b · **Status:** [ ] code done 2026-11-07; component tests pass
+**Depends on:** M3-15, M3-21b, M3-22, M2-9b · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** the Overview panels that needed tools now show real data.
 **Steps:** open-approvals gauge and an "Awaiting your approval" card from `tool_approvals`; capability chips from the tool registry (registered tools only, unavailable ones greyed with their state); Activity timeline panel from `action_logs`; "Review approval" quick action shown only while an approval is open; failed loads show "Unavailable".
 **Done when:** the Overview shows only real state and no placeholders.
