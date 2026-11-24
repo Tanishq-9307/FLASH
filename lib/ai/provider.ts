@@ -2,11 +2,18 @@
 //
 // Primary: Groq `llama-3.3-70b-versatile` via `@ai-sdk/groq`
 // (verified: console.groq.com/docs/ai-sdk; env `GROQ_API_KEY`).
+// Coding mode: Groq `openai/gpt-oss-120b` (verified 2026-11-24:
+// console.groq.com/docs/model/openai/gpt-oss-120b — Production
+// tier, 131,072-token context, SWE-Bench Verified 62.4%).
 // Backup: OpenRouter free `meta-llama/llama-3.3-70b-instruct:free`
 // via `@openrouter/ai-sdk-provider` 3.1.0 (verified 2026-11-24:
 // the `:free` model has been free since at least April 2026 and is
 // still listed as free; a free OpenRouter account gets 50 free-model
 // requests/day, 20/minute — see TECH_STACK.md §3.3).
+//
+// The ids live in lib/ai/models.ts (client-safe) so the chat header
+// can display the active model from the same source the route calls
+// with; this file re-exports them.
 //
 // Failover rule (owner decision 2026-11-24): if a model call fails
 // with a rate-limit (429) or provider server error (5xx), retry the
@@ -38,6 +45,14 @@
 import { groq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { wrapLanguageModel } from "ai";
+import {
+  BACKUP_MODEL_ID,
+  CODING_MODEL_ID,
+  PRIMARY_MODEL_ID,
+  modelIdFor,
+} from "./models";
+
+export { BACKUP_MODEL_ID, CODING_MODEL_ID, PRIMARY_MODEL_ID, modelIdFor };
 import type {
   LanguageModelV4,
   LanguageModelV4CallOptions,
@@ -45,9 +60,6 @@ import type {
   LanguageModelV4Middleware,
   LanguageModelV4StreamResult,
 } from "@ai-sdk/provider";
-
-export const PRIMARY_MODEL_ID = "llama-3.3-70b-versatile";
-export const BACKUP_MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
 export type ProviderName = "groq" | "openrouter";
 
@@ -181,8 +193,17 @@ async function failoverGenerate(
 /** The chat model: Groq primary with one hot-swap attempt to the
  * OpenRouter free backup per request. Every request starts on Groq;
  * the state records which provider actually answered, so the route
- * can report it honestly. */
-export function chatModel(state: FailoverState): LanguageModelV4 {
+ * can report it honestly.
+ *
+ * Coding mode (codingMode true) runs the larger Groq model
+ * `openai/gpt-oss-120b` instead of the default 70B. The backup is
+ * the SAME 70B free model in both modes — failover is about
+ * availability, not capability, so a coding-mode call that hits a
+ * 429/5xx falls back to the 70B backup, not to a coding backup. */
+export function chatModel(
+  state: FailoverState,
+  codingMode = false,
+): LanguageModelV4 {
   const middleware: LanguageModelV4Middleware = {
     specificationVersion: "v4",
     wrapStream: async ({ doStream, params }) => {
@@ -206,5 +227,5 @@ export function chatModel(state: FailoverState): LanguageModelV4 {
       }
     },
   };
-  return wrapLanguageModel({ model: groq(PRIMARY_MODEL_ID), middleware });
+  return wrapLanguageModel({ model: groq(modelIdFor(codingMode)), middleware });
 }

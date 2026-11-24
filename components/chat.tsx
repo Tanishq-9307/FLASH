@@ -21,6 +21,7 @@ import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 import { useRefreshConversations } from "./conversations-context";
 import { createChatLatencyTracker, recordChatLatency } from "@/lib/telemetry";
+import { PRIMARY_MODEL_ID, modelIdFor } from "@/lib/ai/models";
 import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
 import {
   executeAction,
@@ -67,6 +68,21 @@ export default function Chat({
   // or updated_at moving the row to the top) — re-list from the server.
   const refreshConversations = useRefreshConversations();
 
+  // Coding mode (2026-11-24): per-session client state, default OFF.
+  // The flag travels in the request body of every chat and resume
+  // call, so the route runs the larger Groq model (gpt-oss-120b)
+  // when it is on and the default 70B when it is off. Per-session
+  // (not per-conversation, not persisted): it is a per-turn choice,
+  // the toggle is always visible so the state is never hidden, and
+  // persisting it would need a database column for one bit of
+  // throwaway UI state. A refresh resets it to OFF.
+  const [codingMode, setCodingMode] = useState(false);
+  // The model the header shows. Set from the toggle immediately (the
+  // next call will use it) and confirmed by the server's data-model
+  // part on every stream — the id shown is always the id the route
+  // actually called with, never a guess.
+  const [activeModelId, setActiveModelId] = useState(PRIMARY_MODEL_ID);
+
   // App telemetry (2026-11-24): the reply is timed client-side, send →
   // first streamed token → completion, and the completed sample is kept
   // for the Overview Usage panel. A stopped or failed reply records
@@ -81,13 +97,17 @@ export default function Chat({
       prepareSendMessagesRequest: ({ messages: all, trigger }) => {
         if (trigger === "regenerate-message") {
           return {
-            body: { conversationId: currentConversationId, regenerate: true },
+            body: {
+              conversationId: currentConversationId,
+              regenerate: true,
+              codingMode,
+            },
           };
         }
         // Only the latest message travels: the server owns the history.
         const last = all[all.length - 1];
         return {
-          body: { conversationId: currentConversationId, message: last },
+          body: { conversationId: currentConversationId, message: last, codingMode },
         };
       },
     }),
@@ -97,6 +117,14 @@ export default function Chat({
         if (typeof data.conversationId === "string") {
           setCurrentConversationId(data.conversationId);
           refreshConversations();
+        }
+      }
+      // The model this request actually ran on, from the server —
+      // confirms (or corrects) the header display.
+      if (part.type === "data-model") {
+        const data = part.data as { modelId?: unknown };
+        if (typeof data.modelId === "string" && data.modelId !== "") {
+          setActiveModelId(data.modelId);
         }
       }
       // M3-18/21b: the stream ends with an approval ID (data-approval).
@@ -185,6 +213,37 @@ export default function Chat({
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl flex-col px-4 py-6">
+      {/* Chat header: coding-mode toggle + the model actually in use.
+          The toggle is a real switch (keyboard: Tab to reach it, Space
+          or Enter to flip it) with a text label, never colour alone;
+          the model id next to it is the id the last call ran on. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={codingMode}
+          aria-label="Coding mode"
+          onClick={() => {
+            const next = !codingMode;
+            setCodingMode(next);
+            setActiveModelId(modelIdFor(next));
+          }}
+          className="flex min-h-11 items-center gap-2 rounded-md border border-border-strong bg-surface px-3 text-sm text-text-primary"
+        >
+          <span
+            aria-hidden="true"
+            className={`relative inline-block h-5 w-9 rounded-full border ${codingMode ? "border-accent-cyan bg-accent-cyan" : "border-border-strong bg-surface-raised"}`}
+          >
+            <span
+              className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-text-primary transition-all ${codingMode ? "left-[18px]" : "left-0.5"}`}
+            />
+          </span>
+          Coding mode
+        </button>
+        <span aria-live="polite" className="font-mono text-xs text-text-secondary">
+          Model: {activeModelId}
+        </span>
+      </div>
       {messages.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
           <h1 className="font-display text-2xl font-semibold">Chat</h1>
@@ -248,7 +307,7 @@ export default function Chat({
             getApproval: getApprovalSnapshot,
             executeAction,
             rejectAction,
-            resume: resumeApproval,
+            resume: (id) => resumeApproval(id, codingMode),
           }}
           onResolved={() => void reloadAfterResolve()}
           onClose={() => setApprovalId(null)}

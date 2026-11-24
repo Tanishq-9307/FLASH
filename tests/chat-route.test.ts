@@ -28,6 +28,7 @@ const testState = vi.hoisted(() => ({
   backupCalls: 0,
   abortAfterRecord: null as (() => void) | null,
   lastPrompt: null as unknown,
+  lastGroqModelId: null as unknown,
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -191,7 +192,8 @@ vi.mock("@/utils/supabase/admin", () => ({
 vi.mock("@ai-sdk/groq", async () => {
   const { MockLanguageModelV4, simulateReadableStream } = await import("ai/test");
   return {
-    groq: () => {
+    groq: (modelId: unknown) => {
+      testState.lastGroqModelId = modelId;
       testState.modelCalls += 1;
       if (testState.modelMode === "error429") {
         // Retryable rate-limit error (failover tests): the statusCode
@@ -296,6 +298,7 @@ vi.mock("@openrouter/ai-sdk-provider", async () => {
 });
 
 import { POST, maxDuration } from "@/app/api/chat/route";
+import { CODING_MODEL_ID, PRIMARY_MODEL_ID } from "@/lib/ai/provider";
 
 function chatRequest(body: unknown, init: { signal?: AbortSignal } = {}): Request {
   return new Request("http://localhost/api/chat", {
@@ -373,6 +376,7 @@ describe("POST /api/chat", () => {
     testState.backupCalls = 0;
     testState.abortAfterRecord = null;
     testState.lastPrompt = null;
+    testState.lastGroqModelId = null;
     delete process.env.DAILY_MODEL_CALL_CAP;
     vi.unstubAllEnvs();
   });
@@ -702,5 +706,53 @@ describe("POST /api/chat", () => {
     // Dispatched, so the call is not refunded.
     expect(await usageCount(db, userId)).toBe(1);
     expect(testState.modelCalls).toBe(1);
+  });
+
+  // Coding mode (2026-11-24): the flag in the body picks the larger
+  // Groq model, and the stream reports the model actually used.
+  it("codingMode on uses the coding model and reports it in the stream", async () => {
+    const res = await POST(
+      chatRequest({ ...bodyFor("write a quicksort"), codingMode: true }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Hello");
+    expect(testState.lastGroqModelId).toBe(CODING_MODEL_ID);
+    expect(body).toContain(`"modelId":"${CODING_MODEL_ID}"`);
+    expect(await usageCount(db, userId)).toBe(1);
+  });
+
+  it("codingMode off (absent) uses the default model and reports it", async () => {
+    const res = await POST(chatRequest(bodyFor("hi")));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Hello");
+    expect(testState.lastGroqModelId).toBe(PRIMARY_MODEL_ID);
+    expect(body).toContain(`"modelId":"${PRIMARY_MODEL_ID}"`);
+  });
+
+  it("codingMode false uses the default model", async () => {
+    const res = await POST(
+      chatRequest({ ...bodyFor("hi"), codingMode: false }),
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(testState.lastGroqModelId).toBe(PRIMARY_MODEL_ID);
+  });
+
+  it("coding mode 429 fails over to the 70B backup", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+    testState.modelMode = "error429";
+    const res = await POST(
+      chatRequest({ ...bodyFor("write a quicksort"), codingMode: true }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Hello from OpenRouter");
+    expect(body).not.toContain('"type":"error"');
+    expect(testState.lastGroqModelId).toBe(CODING_MODEL_ID);
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.backupCalls).toBe(1);
+    expect(await usageCount(db, userId)).toBe(1);
   });
 });

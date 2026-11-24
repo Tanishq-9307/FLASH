@@ -89,7 +89,7 @@ import {
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { chatModel, createFailoverState } from "@/lib/ai/provider";
+import { chatModel, createFailoverState, modelIdFor } from "@/lib/ai/provider";
 import { usageDateToday, MAX_MODEL_CALLS_PER_REQUEST } from "@/lib/config";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { dbMessagesToUIMessages, uiMessageText } from "@/lib/chat-history";
@@ -126,6 +126,11 @@ const bodySchema = z
     // are retrieved server-side and enter the prompt as untrusted data;
     // the client never sends page text.
     documentId: z.string().uuid().optional(),
+    // Coding mode: the chat runs the larger Groq model
+    // (openai/gpt-oss-120b) instead of the default 70B. Per-session
+    // client state, default off — the client sends it with every
+    // request (message and regenerate alike).
+    codingMode: z.boolean().optional(),
   })
   .refine((b) => Boolean(b.message) !== Boolean(b.regenerate), {
     message: "send exactly one of message or regenerate",
@@ -153,7 +158,10 @@ export async function POST(request: Request) {
     message,
     regenerate,
     documentId,
+    codingMode: codingModeFlag,
   } = parsed.data;
+  // Default off: an absent flag is a normal chat.
+  const codingMode = codingModeFlag === true;
 
   const supabase = await createClient();
   const {
@@ -404,6 +412,13 @@ export async function POST(request: Request) {
         type: "data-conversation",
         data: { conversationId },
       });
+      // The model this request actually runs on, so the header shows
+      // the real model — the flag and this id come from the same
+      // source (modelIdFor), never from the client.
+      writer.write({
+        type: "data-model",
+        data: { modelId: modelIdFor(codingMode) },
+      });
 
       // Tool loop (M3-17): at most MAX_MODEL_CALLS_PER_REQUEST model
       // calls. Each call is one step (stopWhen: stepCountIs(1)) and is
@@ -436,7 +451,7 @@ export async function POST(request: Request) {
         let result: ReturnType<typeof streamText>;
         try {
           result = streamText({
-            model: chatModel(failover),
+            model: chatModel(failover, codingMode),
             instructions,
             messages: modelMessages,
             tools: toModelTools(),

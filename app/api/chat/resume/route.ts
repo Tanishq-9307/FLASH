@@ -7,7 +7,8 @@
 // an outcome, and the model reports only what really happened.
 //
 // Order of operations (ARCHITECTURE.md §7, Diagram 11.3):
-// 1. Validate the body with Zod (approval_id only).
+// 1. Validate the body with Zod (approval_id plus the optional
+//    codingMode flag, same flag as the chat route).
 // 2. Verify the session with getUser(). Unauthenticated → 401.
 // 3. expire_stale_approval (service role) — a no-op unless the
 //    approval is overdue. This runs first so an overdue approval is
@@ -45,7 +46,7 @@ import {
   streamText,
 } from "ai";
 import { z } from "zod";
-import { chatModel, createFailoverState } from "@/lib/ai/provider";
+import { chatModel, createFailoverState, modelIdFor } from "@/lib/ai/provider";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { usageDateToday } from "@/lib/config";
@@ -56,6 +57,9 @@ import {
 
 const resumeBodySchema = z.object({
   approval_id: z.string().uuid(),
+  // Coding mode, same flag as the chat route: the follow-up runs the
+  // larger Groq model when on, the default 70B when off or absent.
+  codingMode: z.boolean().optional(),
 });
 
 export type ResumeOutcome =
@@ -137,6 +141,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
   const approvalId = parsed.data.approval_id;
+  // Default off: an absent flag is a normal follow-up.
+  const codingMode = parsed.data.codingMode === true;
 
   const supabase = await createClient();
   const {
@@ -270,7 +276,7 @@ export async function POST(request: Request) {
   const failover = createFailoverState();
   try {
     result = streamText({
-      model: chatModel(failover),
+      model: chatModel(failover, codingMode),
       instructions,
       messages: modelMessages,
       abortSignal: request.signal,
@@ -299,6 +305,13 @@ export async function POST(request: Request) {
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
+      // The model this follow-up actually runs on (same source as
+      // the chat route), so the header never shows a model that was
+      // not used.
+      writer.write({
+        type: "data-model",
+        data: { modelId: modelIdFor(codingMode) },
+      });
       writer.merge(
         result.toUIMessageStream({
           onEnd: async ({ isAborted, isCancelled, outcome: streamOutcome, responseMessage }) => {

@@ -10,6 +10,7 @@ import { APICallError } from "ai";
 import Chat from "@/components/chat";
 import { QuickAskProvider } from "@/components/quick-ask";
 import { CHAT_LATENCY_KEY } from "@/lib/telemetry";
+import { CODING_MODEL_ID, PRIMARY_MODEL_ID } from "@/lib/ai/models";
 
 type ChatState = {
   messages: Array<{ id: string; role: string; parts: Array<{ type: string; text: string }> }>;
@@ -86,6 +87,35 @@ describe("Chat UI", () => {
       </QuickAskProvider>,
     );
     expect(screen.getByText("No messages yet. Ask FLASH anything…")).toBeDefined();
+  });
+
+  // Coding mode (2026-11-24): the toggle is a labelled switch, off
+  // by default, and the header shows the model that will be used.
+  it("coding mode toggle is off by default and shows the default model", () => {
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    const toggle = screen.getByRole("switch", { name: "Coding mode" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText(`Model: ${PRIMARY_MODEL_ID}`)).toBeDefined();
+  });
+
+  it("flipping the toggle shows the coding model; flipping back restores the default", () => {
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    const toggle = screen.getByRole("switch", { name: "Coding mode" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText(`Model: ${CODING_MODEL_ID}`)).toBeDefined();
+    expect(screen.queryByText(`Model: ${PRIMARY_MODEL_ID}`)).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText(`Model: ${PRIMARY_MODEL_ID}`)).toBeDefined();
   });
 
   it("renders user and assistant messages, markdown for the assistant", () => {

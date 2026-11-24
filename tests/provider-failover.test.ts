@@ -9,6 +9,7 @@ import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
 import {
   BACKUP_MODEL_ID,
+  CODING_MODEL_ID,
   PRIMARY_MODEL_ID,
   chatModel,
   createFailoverState,
@@ -234,5 +235,68 @@ describe("chatModel failover", () => {
     expect(testState.primaryDoStreamCalls).toBe(1);
     expect(testState.backupDoStreamCalls).toBe(0);
     expect(state.usedBackup).toBe(false);
+  });
+});
+
+describe("chatModel coding mode", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    testState.primaryMode = "ok";
+    testState.backupMode = "ok";
+    testState.primaryDoStreamCalls = 0;
+    testState.backupDoStreamCalls = 0;
+    testState.groqModelId = null;
+    testState.openRouterModelId = null;
+    testState.openRouterKeyPresent = false;
+  });
+
+  it("coding mode on → the larger Groq model answers", async () => {
+    const state = createFailoverState();
+    const result = streamText({
+      model: chatModel(state, true),
+      prompt: "write a function",
+      maxRetries: 0,
+    });
+    await expect(result.text).resolves.toBe("Hello from Groq");
+    expect(testState.groqModelId).toBe(CODING_MODEL_ID);
+    expect(testState.groqModelId).not.toBe(PRIMARY_MODEL_ID);
+    expect(testState.primaryDoStreamCalls).toBe(1);
+    expect(testState.backupDoStreamCalls).toBe(0);
+    expect(state.provider).toBe("groq");
+  });
+
+  it("coding mode off (default) → the default 70B model", async () => {
+    const state = createFailoverState();
+    const result = streamText({
+      model: chatModel(state),
+      prompt: "hi",
+      maxRetries: 0,
+    });
+    await expect(result.text).resolves.toBe("Hello from Groq");
+    expect(testState.groqModelId).toBe(PRIMARY_MODEL_ID);
+  });
+
+  it("coding mode 429 → backup answers, and the backup is still the 70B free model", async () => {
+    // Failover is about availability, not capability: a coding-mode
+    // call that hits a rate limit falls back to the same 70B backup
+    // as a normal call, not to a coding backup.
+    testState.primaryMode = "error429";
+    const state = createFailoverState();
+    const result = streamText({
+      model: chatModel(state, true),
+      prompt: "write a function",
+      maxRetries: 0,
+    });
+    await expect(result.text).resolves.toBe("Hello from OpenRouter");
+    expect(testState.groqModelId).toBe(CODING_MODEL_ID);
+    expect(testState.openRouterModelId).toBe(BACKUP_MODEL_ID);
+    expect(testState.primaryDoStreamCalls).toBe(1);
+    expect(testState.backupDoStreamCalls).toBe(1);
+    expect(state.provider).toBe("openrouter");
+    expect(state.usedBackup).toBe(true);
   });
 });

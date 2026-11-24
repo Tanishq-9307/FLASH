@@ -34,6 +34,7 @@ const testState = vi.hoisted(() => ({
   backupCalls: 0,
   backupText: "Done via OpenRouter.",
   recordFails: false,
+  lastGroqModelId: null as unknown,
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -196,7 +197,8 @@ vi.mock("@/utils/supabase/admin", () => ({
 vi.mock("@ai-sdk/groq", async () => {
   const { MockLanguageModelV4, simulateReadableStream } = await import("ai/test");
   return {
-    groq: () => {
+    groq: (modelId: unknown) => {
+      testState.lastGroqModelId = modelId;
       testState.modelCalls += 1;
       return new MockLanguageModelV4({
         doStream: async (options) => {
@@ -234,6 +236,7 @@ vi.mock("@ai-sdk/groq", async () => {
 });
 
 import { POST } from "@/app/api/chat/resume/route";
+import { CODING_MODEL_ID, PRIMARY_MODEL_ID } from "@/lib/ai/provider";
 
 // OpenRouter backup (failover test): answers with different text so
 // the test can tell which provider replied.
@@ -264,11 +267,11 @@ vi.mock("@openrouter/ai-sdk-provider", async () => {
   };
 });
 
-function resumeRequest(approvalId: string): Request {
+function resumeRequest(approvalId: string, codingMode?: boolean): Request {
   return new Request("http://localhost/api/chat/resume", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ approval_id: approvalId }),
+    body: JSON.stringify({ approval_id: approvalId, codingMode }),
   });
 }
 
@@ -314,6 +317,7 @@ describe("POST /api/chat/resume (M3-20)", () => {
     testState.backupCalls = 0;
     testState.backupText = "Done via OpenRouter.";
     testState.recordFails = false;
+    testState.lastGroqModelId = null;
     delete process.env.DAILY_MODEL_CALL_CAP;
     vi.unstubAllEnvs();
   });
@@ -639,5 +643,32 @@ describe("POST /api/chat/resume (M3-20)", () => {
     const messages = await storedMessages();
     expect(messages.map((m) => m.role)).toEqual(["tool", "assistant"]);
     expect(messages[1].content).toBe("Done via OpenRouter.");
+  });
+
+  // Coding mode (2026-11-24): the flag carries through to the
+  // follow-up call, and the stream reports the model actually used.
+  it("codingMode on uses the coding model for the follow-up", async () => {
+    const conversationId = await createConversation();
+    const id = await driveToConsumed(conversationId, "Buy milk");
+    const res = await POST(resumeRequest(id, true));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("The task is done.");
+    expect(body).not.toContain('"type":"error"');
+    expect(testState.lastGroqModelId).toBe(CODING_MODEL_ID);
+    expect(body).toContain(`"modelId":"${CODING_MODEL_ID}"`);
+    expect(testState.modelCalls).toBe(1);
+    expect(await usageCount(db, userId)).toBe(1);
+  });
+
+  it("codingMode absent uses the default model for the follow-up", async () => {
+    const conversationId = await createConversation();
+    const id = await driveToConsumed(conversationId, "Buy milk");
+    const res = await POST(resumeRequest(id));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("The task is done.");
+    expect(testState.lastGroqModelId).toBe(PRIMARY_MODEL_ID);
+    expect(body).toContain(`"modelId":"${PRIMARY_MODEL_ID}"`);
   });
 });

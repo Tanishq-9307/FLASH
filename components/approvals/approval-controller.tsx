@@ -52,11 +52,14 @@ const FINAL: ApprovalState[] = ["succeeded", "failed", "expired", "rejected"];
 const UNAVAILABLE = "Could not reach the server. Nothing was confirmed; try again.";
 
 /** Calls the resume route; a JSON answer (nothing to do) or a stream both end here. */
-export async function resumeApproval(id: string): Promise<void> {
+export async function resumeApproval(
+  id: string,
+  codingMode = false,
+): Promise<void> {
   const res = await fetch("/api/chat/resume", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ approval_id: id }),
+    body: JSON.stringify({ approval_id: id, codingMode }),
   });
   await res.text();
 }
