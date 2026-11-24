@@ -1,6 +1,6 @@
 // Chat route tests (M2-6): server-authoritative history, with the model
 // mocked so no real quota is used. The gate itself is NOT faked: the
-// mocked admin client's rpc calls run the real reserve_api_call /
+// mocked admin client's rpc calls run the real record_api_call /
 // refund_api_call / append_message functions against a fresh PGlite
 // database, and the mocked user-scoped client runs the route's real
 // queries (insert conversation, insert message, load history) through
@@ -24,7 +24,7 @@ const testState = vi.hoisted(() => ({
   user: null as { id: string } | null,
   modelCalls: 0,
   modelMode: "ok" as "ok" | "error" | "hang",
-  abortAfterReserve: null as (() => void) | null,
+  abortAfterRecord: null as (() => void) | null,
   lastPrompt: null as unknown,
 }));
 
@@ -156,12 +156,11 @@ vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       const db = testState.db!;
-      if (fn === "reserve_api_call") {
-        const r = await db.query("SELECT * FROM reserve_api_call($1, $2)", [
+      if (fn === "record_api_call") {
+        const r = await db.query("SELECT * FROM record_api_call($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
-        testState.abortAfterReserve?.();
+        testState.abortAfterRecord?.();
         return { data: r.rows, error: null };
       }
       if (fn === "refund_api_call") {
@@ -316,7 +315,7 @@ describe("POST /api/chat", () => {
     testState.user = null;
     testState.modelCalls = 0;
     testState.modelMode = "ok";
-    testState.abortAfterReserve = null;
+    testState.abortAfterRecord = null;
     testState.lastPrompt = null;
     delete process.env.DAILY_MODEL_CALL_CAP;
   });
@@ -466,7 +465,10 @@ describe("POST /api/chat", () => {
     expect(testState.modelCalls).toBe(0);
   });
 
-  it("with cap 2 the third request gets 429 and no model call", async () => {
+  it("with cap 2 the third request still succeeds — the cap is a display limit only", async () => {
+    // Owner decision 2026-11-24: no 429 any more. Three requests past
+    // the configured daily limit all stream, and usage is counted for
+    // each (the meter needs the count).
     process.env.DAILY_MODEL_CALL_CAP = "2";
     const first = await POST(chatRequest(bodyFor("one")));
     expect(first.status).toBe(200);
@@ -475,33 +477,31 @@ describe("POST /api/chat", () => {
     expect(second.status).toBe(200);
     await second.text();
     const third = await POST(chatRequest(bodyFor("three")));
-    expect(third.status).toBe(429);
-    const body = await third.json();
-    expect(body.error).toBe("cap_reached");
-    expect(body.cap).toBe(2);
-    expect(await usageCount(db, userId)).toBe(2);
-    expect(testState.modelCalls).toBe(2);
+    expect(third.status).toBe(200);
+    await third.text();
+    expect(await usageCount(db, userId)).toBe(3);
+    expect(testState.modelCalls).toBe(3);
   });
 
-  it("two parallel requests at cap minus one allow exactly one", async () => {
+  it("two parallel requests both succeed and both are counted", async () => {
     process.env.DAILY_MODEL_CALL_CAP = "2";
-    await callAs(db, "service_role", "SELECT * FROM reserve_api_call($1, 2)", [userId]);
+    await callAs(db, "service_role", "SELECT * FROM record_api_call($1)", [userId]);
     expect(await usageCount(db, userId)).toBe(1);
     const [a, b] = await Promise.all([
       POST(chatRequest(bodyFor("first"))),
       POST(chatRequest(bodyFor("second"))),
     ]);
     const statuses = [a.status, b.status].sort();
-    expect(statuses).toEqual([200, 429]);
+    expect(statuses).toEqual([200, 200]);
     for (const res of [a, b]) await res.text();
-    expect(await usageCount(db, userId)).toBe(2);
-    expect(testState.modelCalls).toBe(1);
+    expect(await usageCount(db, userId)).toBe(3);
+    expect(testState.modelCalls).toBe(2);
   });
 
   it("abort before dispatch refunds", async () => {
     const controller = new AbortController();
-    // Abort at the precise moment between reserve and dispatch.
-    testState.abortAfterReserve = () => controller.abort();
+    // Abort at the precise moment between record and dispatch.
+    testState.abortAfterRecord = () => controller.abort();
     const res = await POST(
       chatRequest(bodyFor("hi"), { signal: controller.signal }),
     );

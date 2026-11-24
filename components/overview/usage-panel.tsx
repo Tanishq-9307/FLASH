@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usagePercent } from "@/lib/usage";
 import { Panel, Unavailable } from "./panel";
 import { RingGauge, RingGaugeUnavailable } from "./ring-gauge";
 
 export type UsageState =
   | { kind: "loading" }
   | { kind: "unavailable" }
-  | { kind: "ok"; usage: number; cap: number };
+  | {
+      kind: "ok";
+      usage: number;
+      cap: number;
+      /** This calendar month's searches; absent when the health body predates the meter. */
+      searchUsage?: number;
+      /** The monthly search limit; absent when the health body predates the meter. */
+      searchCap?: number;
+    };
 
 export type TaskTally = { done: number; total: number } | null;
 
@@ -21,6 +30,13 @@ export type TaskTally = { done: number; total: number } | null;
  * and memory is the settings switch. An undefined prop means the caller
  * did not supply that figure (older tests); null means the load failed
  * and the gauge says Unavailable, never zero.
+ *
+ * Meters (owner decision 2026-11-24): the limits are display limits
+ * only — chat and search are never blocked by them. The panel shows
+ * today's model-call usage as a percentage of the configured daily
+ * limit, and this month's search usage as a percentage of the monthly
+ * limit (Tavily credits, 1 per basic search). There is no "LIMIT
+ * REACHED" state any more.
  */
 export function UsagePanelView({
   state,
@@ -35,6 +51,14 @@ export function UsagePanelView({
   /** The memory switch, or null when the load failed. */
   memoryEnabled?: boolean | null;
 }) {
+  const modelPercent =
+    state.kind === "ok" ? usagePercent(state.usage, state.cap) : null;
+  const searchPercent =
+    state.kind === "ok" &&
+    typeof state.searchUsage === "number" &&
+    typeof state.searchCap === "number"
+      ? usagePercent(state.searchUsage, state.searchCap)
+      : null;
   return (
     <Panel title="Usage & Limits" tourId="usage">
       {state.kind === "loading" ? (
@@ -87,11 +111,19 @@ export function UsagePanelView({
               </svg>
               <span>
                 Resets 00:00 IST <span className="text-text-muted">{"//"}</span>{" "}
-                <span className={state.usage >= state.cap ? "text-warning" : "text-accent-cyan"}>
-                  {state.usage >= state.cap ? "LIMIT REACHED" : "WITHIN LIMITS"}
+                <span className="text-accent-cyan">
+                  {modelPercent === null ? "Limit not set" : `${modelPercent}% used`}
                 </span>
               </span>
             </p>
+            {searchPercent !== null && state.kind === "ok" ? (
+              <p className="mt-2 text-sm text-text-secondary">
+                Search this month:{" "}
+                <span className="text-text-primary">
+                  {searchPercent}% used ({state.searchUsage} of {state.searchCap} credits)
+                </span>
+              </p>
+            ) : null}
           </div>
         </>
       )}
@@ -101,9 +133,16 @@ export function UsagePanelView({
 
 /** Reads the real figures from /api/health (no model call, no quota). */
 export function usageFromHealth(ok: boolean, body: unknown): UsageState {
-  const b = body as { usage?: unknown; cap?: unknown } | null;
+  const b = body as { usage?: unknown; cap?: unknown; searchUsage?: unknown; searchCap?: unknown } | null;
   if (!ok || typeof b?.usage !== "number" || typeof b?.cap !== "number") return { kind: "unavailable" };
-  return { kind: "ok", usage: b.usage, cap: b.cap };
+  return {
+    kind: "ok",
+    usage: b.usage,
+    cap: b.cap,
+    ...(typeof b.searchUsage === "number" && typeof b.searchCap === "number"
+      ? { searchUsage: b.searchUsage, searchCap: b.searchCap }
+      : {}),
+  };
 }
 
 export function UsagePanel({

@@ -171,21 +171,22 @@ When the approval countdown in the UI reaches zero, the browser triggers Resume.
 
 **Rule:** every model call, including follow-ups after tool results and Resume follow-ups, passes the Model Gate first.
 
+> **2026-11-24 owner decision:** the caps are display limits only. Chat and search are never blocked by an app-level cap — the provider's own limit is the real ceiling. `record_api_call` / `record_search` count usage unconditionally (for the meters); `reserve_api_call` / `reserve_search` are left in the database unused. The items below describe the gate as built in M1/M6; where they say "cap", read "configured display limit".
+
 1. **Depth check.** Maximum **3 model calls per request** (a chat request or a resume request) [PROPOSED]. A fourth attempt aborts the request, appends a "Maximum reasoning depth reached" system message, and returns control to the user. The counter resets on each new user message or resume request.
-2. **Reservation.** `reserve_api_call` runs before dispatch. If it returns no row the server returns an explicit cap-reached error and makes no model call. The gate fails closed.
+2. **Record.** `record_api_call` runs before dispatch and increments today's count by one, unconditionally. If the record itself errors, the gate fails closed with 503: an uncounted call would make the usage meter lie.
 
 ```sql
 INSERT INTO api_usage (user_id, usage_date, model_calls)
 VALUES (p_user_id, (now() AT TIME ZONE 'Asia/Kolkata')::date, 1)
 ON CONFLICT (user_id, usage_date)
 DO UPDATE SET model_calls = api_usage.model_calls + 1
-WHERE api_usage.model_calls < p_cap
 RETURNING model_calls;
 ```
 
-3. **Cap:** [DECIDED] 20 model calls per day (M1-0, 2026-11-07), matching the Gemini free tier's 20 requests per day. The cap counts model calls, not chat messages. Env override `DAILY_MODEL_CALL_CAP`.
+3. **Display limit:** [DECIDED] 20 model calls per day (M1-0, 2026-11-07), matching the Gemini free tier's 20 requests per day. The limit counts model calls, not chat messages. Env override `DAILY_MODEL_CALL_CAP`. Since 2026-11-24 this is a display limit only: the usage meter shows today's usage as a percentage of it, and chat is never blocked by it.
 4. **Day boundary:** [PROPOSED] `Asia/Kolkata` midnight, so resets match local time. UTC is the alternative.
-5. **Refunds:** only if the server deliberately aborts before dispatching to the provider. Never refund timeouts, dropped connections, or provider 5xx errors, because the provider may already have used quota. Clamp at zero, applied to the original reservation date. A crashed server cannot issue refunds, so a crash simply costs one call.
+5. **Refunds:** only if the server deliberately aborts before dispatching to the provider. Never refund timeouts, dropped connections, or provider 5xx errors, because the provider may already have used quota. Clamp at zero, applied to the original record date. A crashed server cannot issue refunds, so a crash simply costs one call.
 
 ---
 

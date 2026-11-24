@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-// Header tests (M1-9): the status chip shows Online, Offline, and Limit
-// reached from the mocked /api/health response; the account menu shows the
-// email and signs out; the header renders nothing on /login.
+// Header tests (M1-9): the status chip shows Online with today's usage
+// percentage, or Offline, from the mocked /api/health response; the
+// account menu shows the email and signs out; the header renders
+// nothing on /login. There is no Limit reached state any more (owner
+// decision 2026-11-24): the daily limit is a display limit only.
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Header, { StatusChip } from "@/components/header";
@@ -38,13 +40,22 @@ describe("StatusChip", () => {
   it.each([
     ["online", "Online"],
     ["offline", "Offline"],
-    ["limit_reached", "Limit reached"],
     ["checking", "Checking…"],
   ] as const)("shows %s with an icon and text", (status, label) => {
     render(<StatusChip status={status} />);
     const chip = screen.getByRole("status");
     expect(chip.textContent).toContain(label);
     expect(chip.querySelector("svg")).not.toBeNull();
+  });
+
+  it("shows the usage percentage next to Online when it is known", () => {
+    render(<StatusChip status="online" percent={5} />);
+    expect(screen.getByRole("status").textContent).toContain("5% used");
+  });
+
+  it("shows no percentage when it is unknown", () => {
+    render(<StatusChip status="online" percent={null} />);
+    expect(screen.getByRole("status").textContent).not.toContain("% used");
   });
 });
 
@@ -53,24 +64,27 @@ describe("Header", () => {
     mockHealth({ status: "online", usage: 3, cap: 20 });
   });
 
-  it("shows Online from /api/health", async () => {
+  it("shows Online with today's usage percentage from /api/health", async () => {
     render(
       <QuickAskProvider>
         <Header userEmail={EMAIL} />
       </QuickAskProvider>,
     );
     expect(await screen.findByText("Online")).toBeDefined();
+    // 3 of 20 = 15% — computed from the mocked figures, never hardcoded.
+    expect(await screen.findByText(/15% used/)).toBeDefined();
     expect(global.fetch).toHaveBeenCalledWith("/api/health", { cache: "no-store" });
   });
 
-  it("shows Limit reached when the cap is hit", async () => {
-    mockHealth({ status: "limit_reached", usage: 20, cap: 20 });
+  it("shows Online with no percentage when the health body has no figures", async () => {
+    mockHealth({ status: "online" });
     render(
       <QuickAskProvider>
         <Header userEmail={EMAIL} />
       </QuickAskProvider>,
     );
-    expect(await screen.findByText("Limit reached")).toBeDefined();
+    expect(await screen.findByText("Online")).toBeDefined();
+    expect(screen.queryByText(/% used/)).toBeNull();
   });
 
   it("shows Offline when the check fails", async () => {

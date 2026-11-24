@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 // Chat UI tests (M1-10): empty state, message styles, streaming indicator,
-// error with retry, and the cap-reached notice. The chat hook is mocked so
-// no network is involved; the route's 429 is represented by a real
-// APICallError with statusCode 429, exactly what the transport throws.
+// error with retry. The chat hook is mocked so no network is involved; a
+// transport failure is represented by a real APICallError, exactly what
+// the transport throws. (There is no cap-reached notice any more —
+// owner decision 2026-11-24.)
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
@@ -147,9 +148,9 @@ describe("Chat UI", () => {
     expect(chatState.current.regenerate).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the cap-reached notice for a 429 and offers no Retry", () => {
+  it("a 429 is a generic failure with Retry — there is no cap-reached state any more", () => {
     chatState.current.error = new APICallError({
-      message: "cap reached",
+      message: "rate limited",
       url: "http://localhost/api/chat",
       requestBodyValues: {},
       statusCode: 429,
@@ -160,7 +161,8 @@ describe("Chat UI", () => {
       </QuickAskProvider>,
     );
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toContain("Daily limit reached");
-    expect(within(document.body).queryByRole("button", { name: /Retry/ })).toBeNull();
+    expect(alert.textContent).toContain("The reply failed");
+    expect(alert.textContent).not.toContain("Daily limit reached");
+    expect(within(document.body).getByRole("button", { name: /Retry/ })).toBeDefined();
   });
 });

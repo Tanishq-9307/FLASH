@@ -3,12 +3,19 @@
 // user, and reports the configured cap. It never calls the model, so it
 // costs no quota. A failed fetch is treated as Offline by the chip.
 //
-// The usage read uses the user-scoped server client, not the admin client:
-// the api_usage RLS policy lets an authenticated user SELECT their own row,
-// so no service-role privilege is needed here.
+// Since the 2026-11-24 owner decision the caps are display limits only:
+// there is no "limit_reached" status any more — the response always says
+// "online" when the check itself works, and the UI shows usage as a
+// percentage of the configured limit. The response also carries this
+// calendar month's search count and the monthly search limit (Tavily
+// credits), for the search meter in the Overview Usage panel.
+//
+// The usage reads use the user-scoped server client, not the admin client:
+// the api_usage and search_usage RLS policies let an authenticated user
+// SELECT their own rows, so no service-role privilege is needed here.
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { modelCallCap, usageDateToday } from "@/lib/config";
+import { modelCallCap, monthlySearchCap, usageDateToday, usageMonthStart } from "@/lib/config";
 
 export async function GET() {
   const supabase = await createClient();
@@ -29,8 +36,19 @@ export async function GET() {
     .maybeSingle();
   const usage = data?.model_calls ?? 0;
 
+  const searchCap = monthlySearchCap();
+  const { data: searchRows } = await supabase
+    .from("search_usage")
+    .select("searches")
+    .eq("user_id", user.id)
+    .gte("usage_date", usageMonthStart());
+  const searchUsage = (searchRows ?? []).reduce(
+    (total, row) => total + (row.searches ?? 0),
+    0,
+  );
+
   return NextResponse.json(
-    { status: usage >= cap ? "limit_reached" : "online", usage, cap },
+    { status: "online", usage, cap, searchUsage, searchCap },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

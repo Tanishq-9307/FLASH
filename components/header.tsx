@@ -3,11 +3,14 @@
 //
 // The wordmark is the plain-text placeholder from DESIGN.md §11 (already
 // recorded there: "FLASH" in JetBrains Mono until an owned SVG exists).
-// The chip polls /api/health every 30 s and shows Online, Offline (the
-// check failed or the session is gone), or Limit reached — each with an
-// icon and a text label, never colour alone (DESIGN.md §8). There is no
-// "Degraded" state yet: /api/health reports no signal for it, so it is
-// deferred, not invented.
+// The chip polls /api/health every 30 s and shows Online with today's
+// model-call usage as a percentage of the configured daily limit
+// ("Online · 5% used"), or Offline (the check failed or the session is
+// gone) — each with an icon and a text label, never colour alone
+// (DESIGN.md §8). There is no "Degraded" state yet: /api/health reports
+// no signal for it, so it is deferred, not invented. There is no "Limit
+// reached" state any more (owner decision 2026-11-24): the daily limit
+// is a display limit only, chat is never blocked by it.
 // The clock is the browser's real local time, rendered only after mount
 // (server and browser clocks differ, so rendering it during SSR would
 // hydrate-mismatch). The header renders nothing on /login.
@@ -17,9 +20,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/login/actions";
+import { usagePercent } from "@/lib/usage";
 import { QuickAskBar } from "./quick-ask";
 
-export type HealthStatus = "checking" | "online" | "offline" | "limit_reached";
+export type HealthStatus = "checking" | "online" | "offline";
 
 const CHIP: Record<
   HealthStatus,
@@ -54,20 +58,19 @@ const CHIP: Record<
     ),
     className: "text-danger",
   },
-  limit_reached: {
-    label: "Limit reached",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
-        <path d="M12 4 2.5 20h19L12 4Z" strokeLinejoin="round" />
-        <path d="M12 10v4.5" strokeLinecap="round" />
-        <circle cx="12" cy="17.5" r="0.5" fill="currentColor" />
-      </svg>
-    ),
-    className: "text-warning",
-  },
 };
 
-export function StatusChip({ status }: { status: HealthStatus }) {
+/** The top-bar status chip. When online and the health check reported
+ * real usage figures, the chip also shows today's model-call usage as
+ * a percentage of the configured daily limit. */
+export function StatusChip({
+  status,
+  percent,
+}: {
+  status: HealthStatus;
+  /** Today's model-call usage as a percentage, or null when unknown. */
+  percent?: number | null;
+}) {
   const chip = CHIP[status];
   return (
     <span
@@ -76,6 +79,9 @@ export function StatusChip({ status }: { status: HealthStatus }) {
     >
       {chip.icon}
       <span className="text-text-primary">{chip.label}</span>
+      {status === "online" && percent !== undefined && percent !== null ? (
+        <span className="text-text-secondary">· {percent}% used</span>
+      ) : null}
     </span>
   );
 }
@@ -93,6 +99,7 @@ function formatClock(date: Date): string {
 export default function Header({ userEmail }: { userEmail: string | null }) {
   const pathname = usePathname();
   const [status, setStatus] = useState<HealthStatus>("checking");
+  const [percent, setPercent] = useState<number | null>(null);
   const [now, setNow] = useState<Date | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -118,12 +125,21 @@ export default function Header({ userEmail }: { userEmail: string | null }) {
         if (cancelled) return;
         if (!res.ok) {
           setStatus("offline");
+          setPercent(null);
           return;
         }
-        const data = (await res.json()) as { status?: string };
-        setStatus(data.status === "limit_reached" ? "limit_reached" : "online");
+        const data = (await res.json()) as { status?: string; usage?: unknown; cap?: unknown };
+        setStatus("online");
+        setPercent(
+          typeof data.usage === "number" && typeof data.cap === "number"
+            ? usagePercent(data.usage, data.cap)
+            : null,
+        );
       } catch {
-        if (!cancelled) setStatus("offline");
+        if (!cancelled) {
+          setStatus("offline");
+          setPercent(null);
+        }
       }
     }
     void check();
@@ -143,7 +159,7 @@ export default function Header({ userEmail }: { userEmail: string | null }) {
       <span className="font-mono text-lg font-semibold tracking-widest text-text-primary">
         FLASH
       </span>
-      <StatusChip status={status} />
+      <StatusChip status={status} percent={percent} />
       <QuickAskBar />
       <time
         dateTime={now?.toISOString()}

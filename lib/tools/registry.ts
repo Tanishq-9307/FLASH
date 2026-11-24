@@ -153,10 +153,10 @@ export const TOOLS: readonly ToolDefinition[] = [
     resultFormat:
       "A JSON object { sources: [{ title, url }], content } where content is the results wrapped in === UNTRUSTED DATA START === / === UNTRUSTED DATA END === delimiters.",
     errorFormat:
-      "A JSON object { error: 'invalid_arguments', details } when the arguments do not match the schema; { error: 'search_cap_reached' } when the daily search limit is hit; { error: 'search_unavailable' } when the search provider fails.",
+      "A JSON object { error: 'invalid_arguments', details } when the arguments do not match the schema; { error: 'search_unavailable' } when the search provider fails.",
     executionPath:
-      "Tool loop (M6-2): reserve one search via reserve_search (refused at the cap, no call made), call Tavily, log via log_read_only_action, results returned to the model as delimited untrusted data. A missing provider key refunds the reservation; a provider failure after dispatch does not.",
-    permission: "Owner only (daily cap 10, server-side).",
+      "Tool loop (M6-2): record one search via record_search (counted for the monthly usage meter; there is no cap), call Tavily, log via log_read_only_action, results returned to the model as delimited untrusted data. A missing provider key refunds the record; a provider failure after dispatch does not.",
+    permission: "Owner only (server-side).",
   },
   {
     name: "create_task",

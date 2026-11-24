@@ -34,9 +34,10 @@ function argTypes(identityArgs: string): string {
 // Expected API functions: name -> argument list (as
 // pg_get_function_identity_arguments reports it) and which roles may
 // execute. The M3 task counts 12 functions (9 service-role + 3
-// authenticated); save_document_extraction (M5, service-role) and
-// reserve_search / refund_search (M6, service-role) are also in this
-// database, so the catalog covers 15 — a function missing from this
+// authenticated); save_document_extraction (M5, service-role),
+// reserve_search / refund_search (M6, service-role) and record_api_call /
+// record_search (usage meters 2026-11-24, service-role) are also in this
+// database, so the catalog covers 17 — a function missing from this
 // map fails the test.
 const EXPECTED_FUNCTIONS: Record<
   string,
@@ -65,6 +66,20 @@ const EXPECTED_FUNCTIONS: Record<
   },
   reserve_search: {
     args: "uuid, integer",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  record_api_call: {
+    args: "uuid",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  record_search: {
+    args: "uuid",
     secdef: true,
     anon: false,
     authenticated: false,

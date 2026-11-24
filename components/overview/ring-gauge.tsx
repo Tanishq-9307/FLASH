@@ -34,7 +34,6 @@ export function RingGauge({ value, max, label }: { value: number; max: number; l
         </span>
         <span className="text-sm text-text-secondary">
           {value} of {max}
-          {full ? " · limit reached" : ""}
         </span>
       </figcaption>
     </figure>

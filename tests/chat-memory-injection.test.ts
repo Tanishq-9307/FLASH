@@ -2,7 +2,7 @@
 // the model as a delimited block when memory is enabled, and nothing
 // is injected when it is off — with the model mocked so no real quota
 // is used. The gate itself is NOT faked: the mocked admin client's
-// rpc calls run the real reserve_api_call / refund_api_call /
+// rpc calls run the real record_api_call / refund_api_call /
 // append_message functions against a fresh PGlite database, and the
 // mocked user-scoped client runs the route's real queries (settings
 // and memories loads, conversation, message, history) through
@@ -175,10 +175,9 @@ vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       const db = testState.db!;
-      if (fn === "reserve_api_call") {
-        const r = await db.query("SELECT * FROM reserve_api_call($1, $2)", [
+      if (fn === "record_api_call") {
+        const r = await db.query("SELECT * FROM record_api_call($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
         return { data: r.rows, error: null };
       }

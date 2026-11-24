@@ -9,27 +9,28 @@
 // 1. Validate the body with Zod (unknown fields are stripped, so a forged
 //    `messages` array in the body is ignored).
 // 2. Verify the session with getUser(). Unauthenticated → 401, and nothing
-//    is reserved.
+//    is recorded.
 // 3. Resolve the conversation with the user-scoped client (RLS: another
 //    user's conversation looks like it does not exist → 404). If none was
 //    given, create one, titled with the first ~60 characters of the first
 //    message (no model call). For a regenerate, the last stored message
 //    must be from the user.
 // 4. Insert the new user message with the user-scoped client, before the
-//    gate: the user did send it, so it is kept even if the cap is reached
-//    and the model cannot reply yet (the user can regenerate later).
+//    gate: the user did send it, so it is kept even if the usage record
+//    fails and the model cannot reply yet (the user can regenerate later).
 // 4b. If a documentId was given (M5-4), load the document with the
 //    user-scoped client (RLS: another user's document looks like it does
 //    not exist → 404; a document that is not 'ready' → 400). This happens
-//    before the reserve, so a bad document costs no model call.
-// 5. Reserve one model call with reserve_api_call (cap from server config).
-//    If it returns no row the cap is reached → explicit 429 the UI can
-//    render, and no model call is made. If the reservation itself errors,
-//    the gate fails closed with 503. This is the gate for the first call;
-//    every later call in the loop is gated the same way (step 7), except
-//    a mid-loop cap ends the turn with a system message instead of a 429,
-//    because the stream has already started.
-// 6. If the request was aborted before dispatch, refund the reservation
+//    before the record, so a bad document costs no model call.
+// 5. Record one model call with record_api_call (owner decision
+//    2026-11-24: the daily cap is a display limit only — there is no
+//    429 any more, chat is never blocked at an app-level cap; the
+//    provider's own daily limit is the real ceiling). If the record
+//    itself errors, the gate fails closed with 503: an uncounted call
+//    would make the usage meter lie. This is the gate for the first
+//    call; every later call in the loop is recorded the same way
+//    (step 7).
+// 6. If the request was aborted before dispatch, refund the record
 //    and answer 499 (client closed request). This is the only refund path:
 //    once the model call is dispatched, a timeout, a dropped connection, or
 //    a provider error is never refunded — the provider may already have
@@ -37,7 +38,7 @@
 //    model was never called, so the call was never dispatched.)
 // 7. Load the history from the database (including the message just
 //    inserted) and run the tool loop (M3-17): at most 3 model calls, each
-//    gated (depth check, then reserve_api_call) and each a single step
+//    recorded (depth check, then record_api_call) and each a single step
 //    (stopWhen: stepCountIs(1)). After a step with tool calls, the server
 //    executes them — invalid arguments get an error result and nothing
 //    runs; read-only tools run with the user-scoped client and are logged
@@ -89,7 +90,7 @@ import {
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { modelCallCap, usageDateToday, MAX_MODEL_CALLS_PER_REQUEST } from "@/lib/config";
+import { usageDateToday, MAX_MODEL_CALLS_PER_REQUEST } from "@/lib/config";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { dbMessagesToUIMessages, uiMessageText } from "@/lib/chat-history";
 import {
@@ -216,7 +217,7 @@ export async function POST(request: Request) {
   }
 
   // A document question names the document; its pages are retrieved
-  // server-side, so validate it before the reserve — a bad document costs
+  // server-side, so validate it before the record — a bad document costs
   // no model call. RLS makes another user's document look absent.
   let documentTitle: string | null = null;
   if (documentId) {
@@ -241,40 +242,28 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const cap = modelCallCap();
   const today = usageDateToday();
 
-  // One Model Gate reservation (ARCHITECTURE.md §6): reserve_api_call
-  // before dispatch. "capped" means the daily cap is reached (no row);
-  // "unavailable" means the reservation itself errored and the gate
-  // fails closed. Used for the first call below, and for every later
-  // call inside the loop.
-  async function reserveModelCall(): Promise<"ok" | "capped" | "unavailable"> {
-    const { data, error } = await admin.rpc("reserve_api_call", {
+  // One usage record (ARCHITECTURE.md §6): record_api_call before
+  // dispatch. "unavailable" means the record itself errored and the
+  // gate fails closed — an uncounted call would make the usage meter
+  // lie. There is no cap refusal any more (owner decision 2026-11-24):
+  // record_api_call always returns a row. Used for the first call
+  // below, and for every later call inside the loop.
+  async function recordModelCall(): Promise<"ok" | "unavailable"> {
+    const { data, error } = await admin.rpc("record_api_call", {
       p_user_id: userId,
-      p_cap: cap,
     });
     if (error) return "unavailable";
-    if (!data || data.length === 0) return "capped";
+    if (!data || data.length === 0) return "unavailable";
     return "ok";
   }
 
-  // Gate for the first call: before the stream starts, so a cap can
-  // still be answered with a plain 429 and a gate error with a 503.
-  const firstGate = await reserveModelCall();
+  // Gate for the first call: before the stream starts, so a record
+  // failure can still be answered with a plain 503.
+  const firstGate = await recordModelCall();
   if (firstGate === "unavailable") {
     return NextResponse.json({ error: "rate_limit_unavailable" }, { status: 503 });
-  }
-  if (firstGate === "capped") {
-    return NextResponse.json(
-      {
-        error: "cap_reached",
-        usage: cap,
-        cap,
-        message: `Daily limit reached. You have used ${cap} of ${cap} model calls today. Try again tomorrow.`,
-      },
-      { status: 429 },
-    );
   }
 
   if (request.signal.aborted) {
@@ -359,8 +348,8 @@ export async function POST(request: Request) {
   const modelMessages: ModelMessage[] =
     await convertToModelMessages(history);
 
-  // Persist a system notice (depth overrun, mid-loop cap). The notice
-  // is the record the user sees on refresh; the stream simply ends
+  // Persist a system notice (depth overrun, mid-loop record failure).
+  // The notice is the record the user sees on refresh; the stream simply ends
   // after it. A failed persist is logged, never fatal.
   async function appendSystemNotice(text: string): Promise<void> {
     try {
@@ -420,7 +409,7 @@ export async function POST(request: Request) {
       let callsMade = 0;
       for (;;) {
         // Model Gate for calls 2 and 3 (ARCHITECTURE.md §6): depth
-        // check, then reserve. A fourth call is refused here — the
+        // check, then record. A fourth call is refused here — the
         // third call's tool results were already executed and
         // persisted, but the model never sees them; the system message
         // says why no answer followed.
@@ -431,16 +420,10 @@ export async function POST(request: Request) {
             );
             break;
           }
-          const gate = await reserveModelCall();
-          if (gate === "capped") {
-            await appendSystemNotice(
-              `Daily model-call limit reached (${cap} of ${cap} used). The turn ended here — try again tomorrow.`,
-            );
-            break;
-          }
+          const gate = await recordModelCall();
           if (gate === "unavailable") {
             await appendSystemNotice(
-              "The daily model-call limit could not be checked, so the turn ended here. Try again.",
+              "The model-call usage could not be recorded, so the turn ended here. Try again.",
             );
             break;
           }
@@ -457,7 +440,7 @@ export async function POST(request: Request) {
             abortSignal: request.signal,
             // The history can contain system messages (tool outcomes
             // rendered as system by dbMessagesToUIMessages, "Reply
-            // interrupted" lines, cap notices). They are written by
+            // interrupted" lines, record-failure notices). They are written by
             // this server into the database — trusted, never
             // client-supplied — so the SDK's opt-in for system
             // messages in `messages` is safe here. Without it, the
@@ -467,8 +450,8 @@ export async function POST(request: Request) {
           });
         } catch {
           // streamText threw before dispatch — the provider was never
-          // called. The first call's reservation was already refunded
-          // by the caller below; a later call's reservation is
+          // called. The first call's record was already refunded
+          // by the caller below; a later call's record is
           // refunded here for the same reason (no dispatch happened).
           await admin.rpc("refund_api_call", {
             p_user_id: user.id,

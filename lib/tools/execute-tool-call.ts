@@ -17,13 +17,14 @@
 //     instead, so it can ask the owner to resolve the open dialog.
 //   - read-only tool (get_tasks, web_search) → run with the
 //     user-scoped client (get_tasks) or the search provider
-//     (web_search, after reserving one search against the daily cap),
+//     (web_search, after recording one search for the monthly meter),
 //     log the outcome via log_read_only_action (succeeded with the
 //     result, or failed with a generic error), and return the result
 //     to the model. A query failure is reported honestly as
-//     query_failed, a search failure as search_unavailable, and a hit
-//     cap as search_cap_reached — never with internals, and never
-//     with invented tasks or results.
+//     query_failed and a search failure as search_unavailable — never
+//     with internals, and never with invented tasks or results.
+//     There is no search cap any more (owner decision 2026-11-24):
+//     the monthly limit is a display limit only.
 //
 // The return is a discriminated outcome: either a tool-result part
 // for the model's next message, or an approval_created outcome the
@@ -33,7 +34,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ToolResultPart } from "ai";
 import type { Database } from "@/types/supabase";
-import { approvalTtlSeconds, searchCap } from "@/lib/config";
+import { approvalTtlSeconds } from "@/lib/config";
 import { toJson } from "@/lib/json";
 import {
   searchTavily,
@@ -197,20 +198,21 @@ export async function executeToolCall(
     }
   }
 
-  // Read-only, web_search: reserve one search first, then call the
-  // provider. The reserve is the cap: no row back means the daily
-  // limit is hit, so nothing is called and no log row is written —
-  // the same "nothing ran, nothing to audit" rule as invalid
-  // arguments. A reservation that fails at the database is reported
-  // honestly as search_unavailable and logged as a failure.
+  // Read-only, web_search: record one search first, then call the
+  // provider. The record is unconditional (owner decision 2026-11-24:
+  // no daily search cap — the monthly limit is a display limit only),
+  // so a record failure is reported honestly as search_unavailable
+  // and logged as a failure. A missing provider key is a pre-dispatch
+  // abort and refunds the record; a provider failure after dispatch
+  // does not refund.
   if (validated.tool.name === "web_search") {
     const args = validated.args as { query: string };
-    const { data: reserved, error: reserveError } = await clients.admin.rpc(
-      "reserve_search",
-      { p_user_id: userId, p_cap: searchCap() },
+    const { data: recorded, error: recordError } = await clients.admin.rpc(
+      "record_search",
+      { p_user_id: userId },
     );
-    if (reserveError !== null) {
-      console.error("Search reservation failed", reserveError);
+    if (recordError !== null) {
+      console.error("Search record failed", recordError);
       try {
         await clients.admin.rpc("log_read_only_action", {
           p_user_id: userId,
@@ -227,20 +229,23 @@ export async function executeToolCall(
       return {
         outcome: "tool_result",
         result: errorResult(call, { error: "search_unavailable" }),
-        summary: "Called web_search. The search could not be reserved.",
+        summary: "Called web_search. The search could not be recorded.",
       };
     }
-    if (reserved === null || reserved.length !== 1) {
+    // record_search returns exactly one row; anything else means the
+    // record did not happen, so the search is refused honestly.
+    const recordedRow =
+      recorded && recorded.length === 1
+        ? (recorded[0] as { usage_date: string } | undefined)
+        : undefined;
+    if (!recordedRow) {
       return {
         outcome: "tool_result",
-        result: errorResult(call, {
-          error: "search_cap_reached",
-          message: "The daily web-search limit has been reached.",
-        }),
-        summary: "Called web_search. The daily search limit has been reached.",
+        result: errorResult(call, { error: "search_unavailable" }),
+        summary: "Called web_search. The search could not be recorded.",
       };
     }
-    const usageDate = (reserved[0] as { usage_date: string }).usage_date;
+    const usageDate = recordedRow.usage_date;
     try {
       const output = await executeWebSearch(
         args.query,
@@ -268,9 +273,9 @@ export async function executeToolCall(
       };
     } catch (err) {
       // A pre-dispatch abort (the provider key is missing) refunds
-      // the reservation: nothing was sent to the provider, so the
+      // the record: nothing was sent to the provider, so the
       // search did not happen. A provider failure after dispatch is
-      // NOT refunded — the same rule as the model-call cap.
+      // NOT refunded — the same rule as the model-call record.
       if (err instanceof TavilyError && err.code === "provider-misconfigured") {
         try {
           await clients.admin.rpc("refund_search", {
@@ -278,7 +283,7 @@ export async function executeToolCall(
             p_usage_date: usageDate,
           });
         } catch (refundErr) {
-          console.error("Failed to refund search reservation", refundErr);
+          console.error("Failed to refund search record", refundErr);
         }
       }
       try {

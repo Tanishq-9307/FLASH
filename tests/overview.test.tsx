@@ -93,14 +93,34 @@ describe("NotesPanel", () => {
 });
 
 describe("UsagePanelView and usageFromHealth", () => {
-  it("normal: gauges show real figures; limit reached is labelled", () => {
+  it("normal: gauges show real figures and the usage percentage", () => {
     const out = html(<UsagePanelView state={{ kind: "ok", usage: 3, cap: 20 }} tasks={{ done: 2, total: 5 }} />);
     expect(out).toContain("3 of 20");
     expect(out).toContain("2 of 5");
-    expect(out).toContain("WITHIN LIMITS");
+    expect(out).toContain("15% used");
+    // No LIMIT REACHED any more (owner decision 2026-11-24): the
+    // limit is a display limit only, so full usage reads 100% used.
     const capped = html(<UsagePanelView state={{ kind: "ok", usage: 20, cap: 20 }} tasks={null} />);
-    expect(capped).toContain("LIMIT REACHED");
+    expect(capped).toContain("100% used");
+    expect(capped).not.toContain("LIMIT REACHED");
     expect(capped).toContain("Unavailable");
+  });
+
+  it("monthly search meter: percentage of the monthly limit, clearly labelled monthly", () => {
+    const out = html(
+      <UsagePanelView
+        state={{ kind: "ok", usage: 3, cap: 20, searchUsage: 50, searchCap: 1000 }}
+        tasks={null}
+      />,
+    );
+    expect(out).toContain("Search this month:");
+    expect(out).toContain("5% used");
+    expect(out).toContain("50 of 1000 credits");
+  });
+
+  it("no search figures in the health body means no search meter", () => {
+    const out = html(<UsagePanelView state={{ kind: "ok", usage: 3, cap: 20 }} tasks={null} />);
+    expect(out).not.toContain("Search this month");
   });
 
   it("loading and unavailable states", () => {

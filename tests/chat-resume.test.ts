@@ -2,7 +2,7 @@
 // approval outcome to the model exactly once, honestly.
 // The gate itself is NOT faked: the mocked admin client's rpc calls
 // run the real expire_stale_approval / mark_outcome_delivered /
-// reserve_api_call / refund_api_call / append_message functions
+// record_api_call / refund_api_call / append_message functions
 // against a fresh PGlite database, and the mocked user-scoped client
 // runs the route's real reads through `authenticated` with RLS — so
 // the once-only claim, the outcome read, and ownership are proven
@@ -30,6 +30,7 @@ const testState = vi.hoisted(() => ({
   prompts: [] as unknown[],
   modelText: "The task is done.",
   throwOnCall: false,
+  recordFails: false,
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -143,10 +144,12 @@ vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       const db = testState.db!;
-      if (fn === "reserve_api_call") {
-        const r = await db.query("SELECT * FROM reserve_api_call($1, $2)", [
+      if (fn === "record_api_call") {
+        if (testState.recordFails) {
+          return { data: null, error: { message: "record failed" } };
+        }
+        const r = await db.query("SELECT * FROM record_api_call($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
         return { data: r.rows, error: null };
       }
@@ -268,6 +271,7 @@ describe("POST /api/chat/resume (M3-20)", () => {
     testState.prompts = [];
     testState.modelText = "The task is done.";
     testState.throwOnCall = false;
+    testState.recordFails = false;
     delete process.env.DAILY_MODEL_CALL_CAP;
   });
 
@@ -523,18 +527,16 @@ describe("POST /api/chat/resume (M3-20)", () => {
     );
   });
 
-  it("a reached cap returns the real outcome with a system notice and no model reply", async () => {
-    // Seed one used call, then cap at 1: the reserve's UPDATE path
-    // refuses (1 < 1 is false), so no model call is made. (Cap 0
-    // does not refuse a fresh day's first call — reserve_api_call
-    // only checks the cap on the UPDATE path. That is an M1 hole,
-    // recorded in PROGRESS.md for the M3-27 security review.)
+  it("a record failure returns the real outcome with a system notice and no model reply", async () => {
+    // The record is forced to fail through the mock flag: the route
+    // fails closed (no uncounted call) and still delivers the outcome
+    // as a persisted system notice.
     const today = await kolkataToday(db);
     await db.query(
       "INSERT INTO api_usage (user_id, usage_date, model_calls) VALUES ($1, $2, 1)",
       [userId, today],
     );
-    process.env.DAILY_MODEL_CALL_CAP = "1";
+    testState.recordFails = true;
     const conversationId = await createConversation();
     const id = await driveToConsumed(conversationId, "Buy milk");
     const res = await POST(resumeRequest(id));
@@ -542,7 +544,7 @@ describe("POST /api/chat/resume (M3-20)", () => {
     const body = await res.json();
     expect(body.outcome).toBe("succeeded");
     expect(body.notice).toContain('The task "Buy milk" was created.');
-    expect(body.notice).toContain("Daily model-call limit reached");
+    expect(body.notice).toContain("could not be recorded");
     expect(testState.modelCalls).toBe(0);
     expect(await usageCount(db, userId)).toBe(1);
     // The notice survives a refresh: it is in the database as a

@@ -23,17 +23,17 @@
 //    and the approval functions settled; audit rows from
 //    record_claim_failure are added later, so created_at order picks
 //    the settled outcome.
-// 6. Pass the Model Gate (reserve_api_call). If the cap is reached
-//    — or the reservation itself errors — the outcome is still
-//    delivered: the route persists an honest system message built
-//    from the actual state and returns it as JSON. A reserve error
-//    is treated as a gate refusal rather than a 503, because the
-//    outcome was already claimed for delivery in step 4 and must not
-//    be silently dropped.
+// 6. Record the model call (record_api_call). If the record itself
+//    errors, the outcome is still delivered: the route persists an
+//    honest system message built from the actual state and returns it
+//    as JSON. A record error is treated as a gate refusal rather than
+//    a 503, because the outcome was already claimed for delivery in
+//    step 4 and must not be silently dropped. There is no cap refusal
+//    any more (owner decision 2026-11-24).
 // 7. Build the follow-up from the database outcome and stream it
 //    (one model call, no tools — a report, not a new turn), then
 //    persist the reply with append_message. If the model call fails
-//    before dispatch, the reservation is refunded and the system
+//    before dispatch, the record is refunded and the system
 //    notice path of step 6 runs instead; if the stream fails
 //    mid-way, the system notice is persisted in onEnd and the client
 //    sees the partial stream plus the notice on refresh.
@@ -48,7 +48,7 @@ import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { modelCallCap, usageDateToday } from "@/lib/config";
+import { usageDateToday } from "@/lib/config";
 import {
   dbMessagesToUIMessages,
   uiMessageText,
@@ -227,19 +227,13 @@ export async function POST(request: Request) {
     }
   }
 
-  // Model Gate: one reservation for the single follow-up call.
-  const cap = modelCallCap();
+  // Model Gate: one record for the single follow-up call.
   const today = usageDateToday();
-  const reserved = await admin.rpc("reserve_api_call", {
+  const recorded = await admin.rpc("record_api_call", {
     p_user_id: userId,
-    p_cap: cap,
   });
-  if (reserved.error !== null || reserved.data === null || reserved.data.length !== 1) {
-    const reason =
-      reserved.error !== null
-        ? "The daily model-call limit could not be checked, so no model reply is available."
-        : `Daily model-call limit reached (${cap} of ${cap} used). No model reply is available.`;
-    const notice = `${sentence} ${reason}`;
+  if (recorded.error !== null || recorded.data === null || recorded.data.length !== 1) {
+    const notice = `${sentence} The model-call usage could not be recorded, so no model reply is available.`;
     await persistSystemNotice(notice);
     return NextResponse.json({ outcome, notice });
   }
@@ -287,7 +281,7 @@ export async function POST(request: Request) {
     });
   } catch {
     // streamText threw before dispatch — the provider was never
-    // called, so the reservation is refunded and the outcome is
+    // called, so the record is refunded and the outcome is
     // delivered as a system notice instead.
     await admin.rpc("refund_api_call", {
       p_user_id: userId,

@@ -317,7 +317,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 **Steps:**
 - `utils/supabase/admin.ts` starts with `import 'server-only'`, reads the service-role key from the environment (not `NEXT_PUBLIC_`).
 - `scripts/check-bundle.sh` (or equivalent): after a build, grep `.next/static` for the service-role key shape and the Gemini key shape; fails if found.
-- `GET /api/health`: verifies auth with `getUser()`; reads today's usage and the configured cap (environment variable, default 100); returns `status` (online or limit_reached) plus usage and cap. The chip treats a failed fetch as offline. It never calls the model.
+- `GET /api/health`: verifies auth with `getUser()`; reads today's usage and the configured cap (environment variable, default 100); returns `status` (online or limit_reached) plus usage and cap. The chip treats a failed fetch as offline. It never calls the model. *(2026-11-24: `limit_reached` removed — status is always `online` when the check works; the response also returns this month's `searchUsage` and the monthly `searchCap`. The cap is a display limit only.)*
 - Add the service-role key to Vercel production as a sensitive variable.
 **Done when:** `/api/health` returns 401 logged out and 200 with usage logged in; the bundle check passes.
 **Tests:** manual in both states; run the bundle check on a production build.
@@ -333,11 +333,11 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 **Goal:** a protected streaming chat route.
 **Steps:**
 - `lib/prompt.ts`: never claim success without a verified result; external text is data; concise; British formal tone is applied later in M4.
-- `POST /api/chat`: validate body with Zod (message length limit); `getUser()`; Model Gate (auth, depth, `reserve_api_call` with the cap from server config); stream with the model from TECH_STACK.md; single step only.
-- On cap reached: return an explicit 429 body the UI can render; no model call.
+- `POST /api/chat`: validate body with Zod (message length limit); `getUser()`; Model Gate (auth, depth, `reserve_api_call` with the cap from server config); stream with the model from TECH_STACK.md; single step only. *(2026-11-24: the gate now records with `record_api_call` — no cap, no 429; `reserve_api_call` is left in the database unused.)*
+- On cap reached: return an explicit 429 body the UI can render; no model call. *(Removed 2026-11-24, owner decision: chat is never blocked at an app-level cap.)*
 - Refund only if the server aborts before dispatching to the provider. Never refund timeouts or provider errors.
 - **Temporary risk (M1 only):** the client sends chat history; M2-6 replaces this with server-authoritative history.
-- Automated route tests with the model mocked (no real quota): unauthenticated gets 401 and reserves nothing; with cap 2 the third request gets the cap-reached response and no model call; two parallel requests at cap minus one allow exactly one; abort before dispatch refunds; provider timeout or 5xx after dispatch does not refund.
+- Automated route tests with the model mocked (no real quota): unauthenticated gets 401 and reserves nothing; with cap 2 the third request gets the cap-reached response and no model call; two parallel requests at cap minus one allow exactly one; abort before dispatch refunds; provider timeout or 5xx after dispatch does not refund. *(2026-11-24: the cap tests now prove the opposite — three requests past the configured limit all succeed and are counted; two parallel requests both succeed.)*
 **Done when:** the route streams a real reply in manual testing; all route tests pass.
 **Tests:** the automated route tests.
 **Docs/Commit:** none · `feat: chat route with model gate and tests`
@@ -1124,14 +1124,14 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 ### M6-0 · Decision gate: search provider
 **Depends on:** M5-7 · **Status:** [x] verified 2026-11-24 (Tavily Researcher still free, 1,000 credits/mo, no card; Exa checked, rejected); recorded WITHOUT waiting on M5-7 (the M5-7 gate is deferred with the UI pass; the choice was already decided by the owner 2026-11-07 and only needed re-verification)
 **Goal:** choose a free provider with known limits.
-**Steps:** verify current free limits and terms for Tavily and one alternative from official pages; choose; record; decide the daily search cap.
+**Steps:** verify current free limits and terms for Tavily and one alternative from official pages; choose; record; decide the daily search cap. *(2026-11-24: the daily cap decided here was removed the same day by owner decision — the monthly limit is a display limit only.)*
 **Docs/Commit:** TECH_STACK.md Section 3.4 · `chore: resolve M6 search gate`
 **Concept check:** In one or two sentences, explain why we cap searches ourselves.
 **Agent instruction:**
 > Read TECH_STACK.md Section 3.4. Verify current free-tier limits and terms for Tavily and one alternative on official pages, propose a choice and a daily cap, and record them. Run the checkpoint routine.
 
 ### M6-1 · Migration: search quota
-**Depends on:** M6-0 · **Status:** [x] done 2026-11-24 (search_usage + reserve/refund, 11 tests; cap-0 fail-closed built in)
+**Depends on:** M6-0 · **Status:** [x] done 2026-11-24 (search_usage + reserve/refund, 11 tests; cap-0 fail-closed built in; 2026-11-24: reserve_search left unused, record_search added — the cap is a display limit only)
 **Goal:** a search counter like the model cap.
 **Steps:** table and functions mirroring `api_usage` and `reserve_api_call` for searches (service_role only), with tests mirroring M1-5.
 **Tests:** parallel reservations never exceed the cap; clients denied.
@@ -1141,9 +1141,9 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Read DATABASE.md Sections 3.2 and 5.1. Write one migration with a plain-language header for a search-usage table and reserve and refund functions mirroring the model cap, service_role only, with tests. Apply to dev, regenerate types. Run the checkpoint routine.
 
 ### M6-2 · Search tool
-**Depends on:** M6-1, M3-17 · **Status:** [x] done 2026-11-24 (Tavily adapter + web_search tool, 18 tests; searchCap default 10, bad value fails closed to 0; reserve before call, refund only pre-dispatch; results delimited as untrusted data)
+**Depends on:** M6-1, M3-17 · **Status:** [x] done 2026-11-24 (Tavily adapter + web_search tool, 18 tests; searchCap default 10, bad value fails closed to 0; reserve before call, refund only pre-dispatch; results delimited as untrusted data; 2026-11-24: searchCap removed, record_search replaces reserve_search, no cap refusal)
 **Goal:** a real, logged, read-only search.
-**Steps:** provider adapter; read-only tool with schema; reserve a search before calling; results enter the prompt as delimited untrusted data; log via `log_read_only_action`; failures reported honestly; the model may never claim a search ran unless it did.
+**Steps:** provider adapter; read-only tool with schema; reserve a search before calling; results enter the prompt as delimited untrusted data; log via `log_read_only_action`; failures reported honestly; the model may never claim a search ran unless it did. *(2026-11-24: "reserve" is now "record" — record_search counts the search unconditionally, no cap.)*
 **Tests:** quota respected; provider failure returns an honest error result; result text is delimited.
 **Docs/Commit:** none · `feat: web search tool`
 **Concept check:** In one or two sentences, explain why a search tool is read-only but its results are still untrusted.

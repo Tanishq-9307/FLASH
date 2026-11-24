@@ -194,10 +194,9 @@ vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       const db = testState.db!;
-      if (fn === "reserve_api_call") {
-        const r = await db.query("SELECT * FROM reserve_api_call($1, $2)", [
+      if (fn === "record_api_call") {
+        const r = await db.query("SELECT * FROM record_api_call($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
         return { data: r.rows, error: null };
       }

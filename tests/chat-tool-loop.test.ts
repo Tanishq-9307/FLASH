@@ -1,10 +1,10 @@
 // Chat route tool loop tests (M3-17): the model can call get_tasks
 // through the loop, with the model mocked so no real quota is used.
 // The gate itself is NOT faked: the mocked admin client's rpc calls
-// run the real reserve_api_call / refund_api_call / append_message /
+// run the real record_api_call / refund_api_call / append_message /
 // log_read_only_action functions against a fresh PGlite database, and
 // the mocked user-scoped client runs the route's real queries through
-// `authenticated` with RLS — so reservations, logging, and ownership
+// `authenticated` with RLS — so records, logging, and ownership
 // are proven against real Postgres, not against the mock. The model is
 // scripted per test: each entry in testState.script is one model call
 // (a text reply, a tool call, or both), consumed in order.
@@ -42,6 +42,10 @@ const testState = vi.hoisted(() => ({
     score: number;
   }>,
   searchCalls: [] as string[],
+  // Mid-loop record failure: the Nth record_api_call errors, so the
+  // loop ends the turn with a system message instead of a model call.
+  recordCalls: 0,
+  failRecordAfter: null as number | null,
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -190,10 +194,16 @@ vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       const db = testState.db!;
-      if (fn === "reserve_api_call") {
-        const r = await db.query("SELECT * FROM reserve_api_call($1, $2)", [
+      if (fn === "record_api_call") {
+        testState.recordCalls += 1;
+        if (
+          testState.failRecordAfter !== null &&
+          testState.recordCalls > testState.failRecordAfter
+        ) {
+          return { data: null, error: { message: "record failed" } };
+        }
+        const r = await db.query("SELECT * FROM record_api_call($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
         return { data: r.rows, error: null };
       }
@@ -204,10 +214,9 @@ vi.mock("@/utils/supabase/admin", () => ({
         ]);
         return { data: null, error: null };
       }
-      if (fn === "reserve_search") {
-        const r = await db.query("SELECT * FROM reserve_search($1, $2)", [
+      if (fn === "record_search") {
+        const r = await db.query("SELECT * FROM record_search($1)", [
           args.p_user_id,
-          args.p_cap,
         ]);
         return { data: r.rows, error: null };
       }
@@ -383,6 +392,8 @@ describe("POST /api/chat with the tool loop (M3-17)", () => {
     testState.script = [];
     testState.searchResults = [];
     testState.searchCalls = [];
+    testState.recordCalls = 0;
+    testState.failRecordAfter = null;
     delete process.env.DAILY_MODEL_CALL_CAP;
   });
 
@@ -565,8 +576,13 @@ describe("POST /api/chat with the tool loop (M3-17)", () => {
     expect(messages[1].content).toContain("invalid arguments");
   });
 
-  it("a cap reached mid-loop ends the turn with a clear system message", async () => {
-    process.env.DAILY_MODEL_CALL_CAP = "1";
+  it("a record failure mid-loop ends the turn with a clear system message", async () => {
+    // The second record fails (mock flag): the turn ends after the
+    // first call's tool result, with a system message — and the
+    // second scripted answer is never reached. There is no cap any
+    // more (owner decision 2026-11-24), so the failure that ends a
+    // turn mid-loop is a record failure, not a hit limit.
+    testState.failRecordAfter = 1;
     await seedTask("Buy milk");
     testState.script = [
       { toolCalls: [{ toolCallId: "call_1", toolName: "get_tasks", input: {} }] },
@@ -579,7 +595,7 @@ describe("POST /api/chat with the tool loop (M3-17)", () => {
     const messages = await storedMessages();
     const system = messages.filter((m) => m.role === "system");
     expect(system).toHaveLength(1);
-    expect(system[0].content).toContain("Daily model-call limit reached");
+    expect(system[0].content).toContain("could not be recorded");
     expect(JSON.stringify(messages)).not.toContain("must never be reached");
   });
 

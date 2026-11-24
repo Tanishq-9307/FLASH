@@ -6,17 +6,16 @@
 // to /chat?id=<id> so a refresh reloads the conversation.
 //
 // States: empty (no messages yet), loading/submitted, streaming (blinking
-// block cursor), error (with Retry), and cap-reached (the route's explicit
-// 429 surfaces as an APICallError with statusCode 429 — the notice is the
-// system line from DESIGN.md §5.4, and there is no Retry: the cap resets
-// tomorrow). The message list is aria-live polite; the error and cap
-// notices are aria-live assertive.
+// block cursor), error (with Retry). There is no cap-reached state any
+// more (owner decision 2026-11-24): the route never returns 429 for a
+// cap, so every failure is the generic error with Retry. The message
+// list is aria-live polite; the error notice is aria-live assertive.
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { APICallError, DefaultChatTransport } from "ai";
+import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
@@ -149,8 +148,6 @@ export default function Chat({
   }, [currentConversationId, refreshConversations, router, setMessages]);
 
   const isStreaming = status === "streaming" || status === "submitted";
-  const isCapReached =
-    error != null && APICallError.isInstance(error) && error.statusCode === 429;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -202,19 +199,7 @@ export default function Chat({
         </div>
       )}
 
-      {isCapReached && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="mt-4 flex justify-center"
-        >
-          <p className="font-mono text-xs text-text-secondary">
-            Daily limit reached, no model reply is available. Try again tomorrow.
-          </p>
-        </div>
-      )}
-
-      {error && !isCapReached && (
+      {error && (
         <div role="alert" aria-live="assertive" className="mt-4 flex flex-col items-center gap-2">
           <p className="text-sm text-danger">The reply failed. Your message was not lost.</p>
           <button

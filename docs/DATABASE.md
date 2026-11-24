@@ -44,12 +44,12 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 ### 3.2 `api_usage` (M1)
 - Columns: `user_id uuid NOT NULL DEFAULT auth.uid()` (FK, cascade), `usage_date date NOT NULL`, `model_calls int NOT NULL DEFAULT 0 CHECK (model_calls >= 0)`.
 - Primary key `(user_id, usage_date)`.
-- RLS: SELECT only. Writes only through `reserve_api_call` and `refund_api_call`.
+- RLS: SELECT only. Writes only through `record_api_call` and `refund_api_call` (since 2026-11-24; `reserve_api_call` is left in the database unused).
 
 ### 3.2a `search_usage` (M6)
 - Columns: `user_id uuid NOT NULL DEFAULT auth.uid()` (FK, cascade), `usage_date date NOT NULL`, `searches int NOT NULL DEFAULT 0 CHECK (searches >= 0)`.
 - Primary key `(user_id, usage_date)`.
-- RLS: SELECT only. Writes only through `reserve_search` and `refund_search` (DATABASE.md §5.1). The reserve INSERT is conditional on the cap being at least 1, so a cap of 0 fails closed on a fresh day (M3-27 lesson, built in from the start).
+- RLS: SELECT only. Writes only through `record_search` and `refund_search` (DATABASE.md §5.1; since 2026-11-24 — `reserve_search` is left in the database unused). The old reserve INSERT was conditional on the cap being at least 1, so a cap of 0 failed closed on a fresh day (M3-27 lesson, built in from the start).
 
 ### 3.3 `conversations` (M2)
 - Columns: `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, `user_id` (FK, cascade), `title text NOT NULL CHECK (char_length(title) <= 255)`, `created_at`, `updated_at` (both `timestamptz NOT NULL DEFAULT now()`).
@@ -121,7 +121,7 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 
 ### 3.13 `search_usage` (M6) [DECIDED, M6-1 2026-11-07]
 - Mirrors `api_usage`: `user_id` (default `auth.uid()`, FK `auth.users` cascade), `usage_date date`, `searches int >= 0`, primary key `(user_id, usage_date)`.
-- RLS: SELECT own rows only. Writes only through `reserve_search(p_user_id, p_cap)` and `refund_search(p_user_id, p_usage_date)`, both service_role only, same single-statement design as `reserve_api_call` (Section 5). The cap comes from `DAILY_SEARCH_CAP` (default 10, TECH_STACK.md 3.4).
+- RLS: SELECT own rows only. Writes only through `record_search(p_user_id)` and `refund_search(p_user_id, p_usage_date)`, both service_role only, same single-statement design as `record_api_call` (Section 5). Since 2026-11-24 there is no cap: the monthly limit (1,000 Tavily credits, env `MONTHLY_SEARCH_CAP`) is a display limit only.
 
 ## 4. Grants Block
 
@@ -158,9 +158,11 @@ Each table's grants are applied in the migration that creates it (the list above
 
 | Function | Caller | Returns | Behaviour |
 |---|---|---|---|
-| `reserve_api_call(p_user_id uuid, p_cap int)` | service_role | `model_calls` and `usage_date`, or no row when capped | Upsert from ARCHITECTURE.md Section 6. `usage_date` is returned so a refund always targets the original reservation day (added in M1-4). |
+| `reserve_api_call(p_user_id uuid, p_cap int)` | service_role | `model_calls` and `usage_date`, or no row when capped | Upsert from ARCHITECTURE.md Section 6. `usage_date` is returned so a refund always targets the original reservation day (added in M1-4). Left in the database unused since 2026-11-24 (caps removed). |
+| `record_api_call(p_user_id uuid)` | service_role | `model_calls` and `usage_date` | Unconditional upsert (2026-11-24): increments today's count by one, no cap check. The write path for chat since the caps were removed. |
 | `refund_api_call(p_user_id uuid, p_usage_date date)` | service_role | void | `GREATEST(0, model_calls - 1)` on that date only. |
-| `reserve_search(p_user_id uuid, p_cap int)` / `refund_search(p_user_id uuid, p_usage_date date)` [DECIDED, M6] | service_role | `(searches, usage_date)` or no row / void | Same as the model-call pair, on `search_usage`. |
+| `reserve_search(p_user_id uuid, p_cap int)` / `refund_search(p_user_id uuid, p_usage_date date)` [DECIDED, M6] | service_role | `(searches, usage_date)` or no row / void | Same as the model-call pair, on `search_usage`. `reserve_search` left in the database unused since 2026-11-24 (caps removed). |
+| `record_search(p_user_id uuid)` | service_role | `searches` and `usage_date` | Unconditional upsert (2026-11-24): increments today's count by one, no cap check. The write path for search since the caps were removed. |
 | `create_pending_approval(p_user_id, p_conversation_id, p_tool_call_id, p_tool, p_params jsonb, p_ttl_seconds int)` | service_role | `approval_id`, `log_id`, or code `open_approval_exists` | Steps in 5.2. |
 | `log_read_only_action(p_user_id, p_conversation_id, p_tool_call_id, p_tool, p_params, p_status, p_result)` | service_role | log id | `p_status` must be `succeeded` or `failed`. `approval_id` stays NULL. Refuses state-changing tool names. (M3-3: `p_tool_call_id` added because `action_logs.tool_call_id` is NOT NULL.) |
 | `record_execution_failure(p_approval_id, p_user_id, p_error jsonb)` | service_role | `retry_count`, `failed` flag | Only for an `approved` approval owned by the user. Increments `retry_count`, appends the sanitised error to the log. At 3: status `failed`, log `failed`, tool message appended, flag true so the server resumes. |

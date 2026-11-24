@@ -628,6 +628,12 @@ export type Database = {
         }
         Returns: { approval_id: string; outcome_delivered_at: string }[]
       }
+      record_api_call: {
+        Args: {
+          p_user_id: string | null
+        }
+        Returns: { model_calls: number; usage_date: string }[]
+      }
       record_claim_failure: {
         Args: {
           p_approval_id: string | null
@@ -644,6 +650,12 @@ export type Database = {
           p_error: Json | null
         }
         Returns: { retry_count: number; failed: boolean }[]
+      }
+      record_search: {
+        Args: {
+          p_user_id: string | null
+        }
+        Returns: { searches: number; usage_date: string }[]
       }
       refund_api_call: {
         Args: {

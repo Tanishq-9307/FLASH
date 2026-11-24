@@ -49,12 +49,12 @@ function fakeAdminClient(opts?: {
   approvalResult?: { result_code: string; approval_id: string | null; log_id: string | null };
   /** If set, create_pending_approval errors with this message. */
   approvalError?: string;
-  /** What reserve_search returns (default: one reserved row). Set to
-   * [] to simulate a hit cap, or reserveSearchError to simulate a
-   * database failure. */
-  reserveSearchRows?: Array<{ searches: number; usage_date: string }>;
-  /** If set, reserve_search errors with this message. */
-  reserveSearchError?: string;
+  /** What record_search returns (default: one recorded row). Set to
+   * [] to simulate a record failure, or recordSearchError to simulate
+   * a database failure. */
+  recordSearchRows?: Array<{ searches: number; usage_date: string }>;
+  /** If set, record_search errors with this message. */
+  recordSearchError?: string;
 }) {
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const client = {
@@ -75,12 +75,12 @@ function fakeAdminClient(opts?: {
           error: null,
         };
       }
-      if (fn === "reserve_search") {
-        if (opts?.reserveSearchError !== undefined) {
-          return { data: null, error: { message: opts.reserveSearchError } };
+      if (fn === "record_search") {
+        if (opts?.recordSearchError !== undefined) {
+          return { data: null, error: { message: opts.recordSearchError } };
         }
         return {
-          data: opts?.reserveSearchRows ?? [
+          data: opts?.recordSearchRows ?? [
             { searches: 1, usage_date: "2026-11-24" },
           ],
           error: null,
@@ -404,14 +404,13 @@ describe("executeToolCall web_search (M6-2)", () => {
     } else {
       throw new Error("expected a json tool result");
     }
-    // Reserve first, then the log — and the reserve used the default cap.
+    // Record first, then the log — and the record carries no cap.
     expect(rpcCalls.map((c) => c.fn)).toEqual([
-      "reserve_search",
+      "record_search",
       "log_read_only_action",
     ]);
     expect(rpcCalls[0].args).toMatchObject({
       p_user_id: USER,
-      p_cap: 10,
     });
     expect(rpcCalls[1].args).toMatchObject({
       p_tool: "web_search",
@@ -419,8 +418,8 @@ describe("executeToolCall web_search (M6-2)", () => {
     });
   });
 
-  it("refuses at the cap without calling the provider or logging", async () => {
-    const { client, rpcCalls } = fakeAdminClient({ reserveSearchRows: [] });
+  it("a record failure is search_unavailable, without calling the provider or logging a success", async () => {
+    const { client, rpcCalls } = fakeAdminClient({ recordSearchRows: [] });
     const provider = vi.fn(async () => ({ results: RESULTS }));
     const executed = await executeToolCall(
       { supabase: fakeUserClient({ tasks: [] }), admin: client },
@@ -429,9 +428,9 @@ describe("executeToolCall web_search (M6-2)", () => {
       SEARCH_CALL,
       { searchProvider: provider },
     );
-    expectErrorResult(executed, "search_cap_reached");
+    expectErrorResult(executed, "search_unavailable");
     expect(provider).not.toHaveBeenCalled();
-    expect(rpcCalls.map((c) => c.fn)).toEqual(["reserve_search"]);
+    expect(rpcCalls.map((c) => c.fn)).toEqual(["record_search"]);
   });
 
   it("reports a provider failure honestly, logs it, and does NOT refund", async () => {
@@ -447,9 +446,9 @@ describe("executeToolCall web_search (M6-2)", () => {
       { searchProvider: provider },
     );
     expectErrorResult(executed, "search_unavailable");
-    // The dispatch happened, so the reservation stands — no refund.
+    // The dispatch happened, so the record stands — no refund.
     expect(rpcCalls.map((c) => c.fn)).toEqual([
-      "reserve_search",
+      "record_search",
       "log_read_only_action",
     ]);
     expect(rpcCalls[1].args).toMatchObject({
@@ -460,7 +459,7 @@ describe("executeToolCall web_search (M6-2)", () => {
     expect(JSON.stringify(executed)).not.toContain("429");
   });
 
-  it("refunds the reservation on a pre-dispatch abort (missing key)", async () => {
+  it("refunds the record on a pre-dispatch abort (missing key)", async () => {
     const { client, rpcCalls } = fakeAdminClient();
     const provider = vi.fn(async () => {
       throw new TavilyError(
@@ -477,7 +476,7 @@ describe("executeToolCall web_search (M6-2)", () => {
     );
     expectErrorResult(executed, "search_unavailable");
     expect(rpcCalls.map((c) => c.fn)).toEqual([
-      "reserve_search",
+      "record_search",
       "refund_search",
       "log_read_only_action",
     ]);
@@ -487,9 +486,9 @@ describe("executeToolCall web_search (M6-2)", () => {
     });
   });
 
-  it("reports a reservation failure honestly without calling the provider", async () => {
+  it("reports a record failure honestly without calling the provider", async () => {
     const { client, rpcCalls } = fakeAdminClient({
-      reserveSearchError: "database unavailable",
+      recordSearchError: "database unavailable",
     });
     const provider = vi.fn(async () => ({ results: RESULTS }));
     const executed = await executeToolCall(
@@ -502,7 +501,7 @@ describe("executeToolCall web_search (M6-2)", () => {
     expectErrorResult(executed, "search_unavailable");
     expect(provider).not.toHaveBeenCalled();
     expect(rpcCalls.map((c) => c.fn)).toEqual([
-      "reserve_search",
+      "record_search",
       "log_read_only_action",
     ]);
     expect(rpcCalls[1].args).toMatchObject({ p_status: "failed" });

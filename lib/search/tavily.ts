@@ -13,9 +13,9 @@
 // round-trip is untested — the tests inject a fake fetch.
 //
 // Errors are typed, never leaked raw: a missing key is a
-// pre-dispatch abort (the caller refunds the reservation), while a
-// provider failure after dispatch is not refunded (the model-call cap
-// follows the same rule — a dispatched call counts even if the
+// pre-dispatch abort (the caller refunds the record), while a
+// provider failure after dispatch is not refunded (the model-call
+// record follows the same rule — a dispatched call counts even if the
 // provider fails).
 export interface TavilySearchResult {
   title: string;

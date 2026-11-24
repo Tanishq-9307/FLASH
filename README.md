@@ -36,8 +36,8 @@ npm run dev
 
 ## Health check
 
-- `GET /api/health` needs a signed-in user (401 logged out) and returns `{ status: "online" | "limit_reached", usage, cap }`. It reads today's usage from `api_usage` and never calls the model, so it costs no quota. The top-bar status chip polls it.
-- The daily cap is 20 model calls (PRD §6 [DECIDED]), overridable with `DAILY_MODEL_CALL_CAP` (see `lib/config.ts`); a bad override fails closed to 0.
+- `GET /api/health` needs a signed-in user (401 logged out) and returns `{ status: "online", usage, cap, searchUsage, searchCap }`. It reads today's usage from `api_usage` and this calendar month's searches from `search_usage`, and never calls the model, so it costs no quota. The top-bar status chip polls it and shows today's model usage as a percentage of the configured limit; the Overview Usage panel shows the same percentage plus this month's search usage as a percentage of the monthly limit.
+- The daily limit is a display limit only (owner decision 2026-11-24): `DAILY_MODEL_CALL_CAP` (default 20, see `lib/config.ts`) is what the meter measures against — chat is never blocked by it. The monthly search limit is `MONTHLY_SEARCH_CAP` (default 1000 Tavily credits, 1 per basic search). A bad model-cap override fails closed to 0; a bad search-cap override falls back to the default.
 - After a production build, run `scripts/check-bundle.sh`: it fails if a secret key shape (`sb_secret_…`, `AIza…`), a secret variable name, or a literal secret value from `.env.local` appears in the client bundle (`.next/static`). The service-role key lives only on the server via `utils/supabase/admin.ts` (`import "server-only"`).
 
 ## Demo script (M3 — the v0.1 demo)
@@ -66,4 +66,4 @@ If a secret is ever committed, deleting it from history is not enough. Rotate it
 - Every Route Handler and Server Action calls `getUser()` itself. The proxy is not authorization.
 - The browser sends only an approval ID to approve, reject, execute, or resume. It never sends parameters, outcomes, or chat history.
 - Model output, documents, and web content are untrusted data.
-- Every model call passes the Model Gate (depth check, then `reserve_api_call`). Refund only when the server aborts before dispatch.
+- Every model call passes the Model Gate (depth check, then `record_api_call`). Refund only when the server aborts before dispatch.

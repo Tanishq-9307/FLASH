@@ -29,7 +29,8 @@ describe("UsagePanel real-data wiring", () => {
     render(<UsagePanel tasks={{ done: 3, total: 9 }} />);
     expect(await screen.findByText("7 of 20")).toBeTruthy();
     expect(screen.getByText("3 of 9")).toBeTruthy();
-    expect(screen.getByText("WITHIN LIMITS")).toBeTruthy();
+    // 7 of 20 = 35% used — the meter, not a WITHIN LIMITS label.
+    expect(screen.getByText("35% used")).toBeTruthy();
   });
 
   it("failed fetch shows Unavailable, never zero", async () => {
@@ -52,11 +53,19 @@ describe("UsagePanel real-data wiring", () => {
     expect(await screen.findByText("Unavailable")).toBeTruthy();
   });
 
-  it("limit reached is labelled when usage hits the cap", async () => {
-    mockHealth({ status: "limit_reached", usage: 20, cap: 20 });
+  it("full usage reads 100% used, never LIMIT REACHED", async () => {
+    mockHealth({ status: "online", usage: 20, cap: 20 });
     render(<UsagePanel tasks={null} />);
-    expect(await screen.findByText("LIMIT REACHED")).toBeTruthy();
-    expect(screen.getByText("20 of 20 · limit reached")).toBeTruthy();
+    expect(await screen.findByText(/100% used/)).toBeTruthy();
+    expect(screen.queryByText("LIMIT REACHED")).toBeNull();
+  });
+
+  it("shows the monthly search meter from /api/health", async () => {
+    mockHealth({ status: "online", usage: 7, cap: 20, searchUsage: 250, searchCap: 1000 });
+    render(<UsagePanel tasks={null} />);
+    expect(await screen.findByText(/Search this month/)).toBeTruthy();
+    expect(screen.getByText(/25% used/)).toBeTruthy();
+    expect(screen.getByText(/250 of 1000 credits/)).toBeTruthy();
   });
 
   it("no task tally means the Tasks-done gauge says Unavailable, not zero", async () => {
