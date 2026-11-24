@@ -1,25 +1,37 @@
 @import "tailwindcss";
 
-/* DESIGN.md Section 3: tokens. Hex values from the token table; contrast
-   ratios were calculated with the WCAG relative-luminance formula.
+/* DESIGN.md Section 3: tokens. Electric Cyan theme — owner decision
+   2026-11-24 (supersedes the original dark-navy palette and the
+   violet orb accent). Hex values below; contrast ratios recomputed with
+   the WCAG relative-luminance formula and recorded in PROGRESS.md.
+   One deliberate deviation from the reference port: text-muted is
+   #759db8, not #6e93ad — the reference value measures 4.49:1 on
+   --surface-raised, just under AA 4.5:1; #759db8 measures 5.07:1 there.
    Tailwind v4 emits these @theme values as CSS custom properties, so
    var(--color-*) and var(--font-*) work in custom CSS too. */
 @theme inline {
-  --color-background: #090d16;
-  --color-surface: #101624;
-  --color-surface-raised: #172033;
-  --color-border: #243049;
-  --color-border-strong: #5b6c92;
-  --color-text-primary: #eaf0fa;
-  --color-text-secondary: #a3b0c6;
-  --color-text-muted: #8593ad;
-  --color-accent-cyan: #2dd4e8;
-  --color-accent-violet: #a78bfa;
+  --color-background: #020a14;
+  --color-surface: #0a1c2e;
+  --color-surface-raised: #0f2a44;
+  --color-border: #14324d;
+  --color-border-strong: #3d7ab0;
+  --color-text-primary: #eaf6ff;
+  --color-text-secondary: #9fc3d8;
+  --color-text-muted: #759db8;
+  --color-accent-cyan: #00e5ff;
+  --color-accent-deep: #00b0ff;
   --color-success: #34d399;
   --color-warning: #fbbf24;
   --color-danger: #f87171;
   --color-info: #60a5fa;
   --color-on-accent: #04121a;
+
+  /* Orb state family (DESIGN-REFERENCES.md §6, Electric Cyan tint per
+     the orb-follows-theme rule): idle, listening, thinking, speaking. */
+  --color-orb-idle: #00e5ff;
+  --color-orb-listening: #00b0ff;
+  --color-orb-thinking: #7df9ff;
+  --color-orb-speaking: #00ffc8;
 
   /* DESIGN.md Section 4 (owner decision 2026-11-07): body Barlow, titles
      Rajdhani, mono JetBrains Mono — all SIL OFL 1.1, self-hosted via
@@ -52,9 +64,9 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45, 212, 232, 0.08), transparent),
-    linear-gradient(rgba(45, 212, 232, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45, 212, 232, 0.03) 1px, transparent 1px);
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 229, 255, 0.08), transparent),
+    linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
   background-size:
     100% 100%,
     32px 32px,
@@ -78,7 +90,7 @@ body::before {
     var(--color-surface-raised),
     var(--color-surface)
   );
-  box-shadow: 0 0 24px rgba(45, 212, 232, 0.07);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.07);
 }
 
 .flash-frame::before {
