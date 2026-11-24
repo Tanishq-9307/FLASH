@@ -272,10 +272,10 @@ vi.mock("@/utils/supabase/admin", () => ({
   }),
 }));
 
-vi.mock("@ai-sdk/google", async () => {
+vi.mock("@ai-sdk/groq", async () => {
   const { MockLanguageModelV4, simulateReadableStream } = await import("ai/test");
   return {
-    google: () => {
+    groq: () => {
       testState.modelCalls += 1;
       return new MockLanguageModelV4({
         doStream: async (options) => {

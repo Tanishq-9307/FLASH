@@ -1,20 +1,18 @@
 // Server configuration (M1-6). Values come from server environment only —
 // never from NEXT_PUBLIC_ variables and never from the client.
 //
-// Daily model-call cap: PRD.md §6 [DECIDED] and M1-0 fix the cap at 20
-// calls per day (matching the Gemini free tier's 20 requests per day), with
-// an env override DAILY_MODEL_CALL_CAP. TASKS.md M1-6 still says the
-// default is 100; that is stale — 20 is the decided value, and the health
-// route reports the same cap the usage meter shows (M1-7). A bad override
-// fails closed to 0 rather than silently allowing unlimited calls.
+// Daily model-call cap: PRD.md §6 [DECIDED] and M1-0 fix the cap at
+// 1,000 calls per day (matching the Groq free tier's 1,000 requests
+// per day for llama-3.3-70b-versatile), with an env override
+// DAILY_MODEL_CALL_CAP. The old default of 20 was the Gemini free
+// tier's limit, replaced with the Groq switch on 2026-11-24.
 // Since the 2026-11-24 owner decision the cap is a DISPLAY limit only:
 // chat is never blocked by it — the provider's own daily limit is the
-// real ceiling. (The configured default will change to the provider's
-// limit in the next step; this function stays config-driven and no
-// meter code or test hardcodes a value.)
+// real ceiling. A bad override fails closed to 0 rather than silently
+// allowing unlimited calls.
 export function modelCallCap(): number {
   const raw = process.env.DAILY_MODEL_CALL_CAP;
-  if (raw === undefined || raw.trim() === "") return 20;
+  if (raw === undefined || raw.trim() === "") return 1000;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 0) return 0;
   return value;

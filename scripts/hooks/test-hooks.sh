@@ -1,11 +1,11 @@
 #!/bin/bash
-# test-hooks.sh — prove the secret-scan hooks block secrets (17 cases).
+# test-hooks.sh — prove the secret-scan hooks block secrets (19 cases).
 #
 # Builds a throwaway repo + bare remote, installs the hooks there, and runs
 # the cases. Fake keys are generated at runtime from /dev/urandom and never
 # saved in this file. The throwaway directory is removed afterwards.
 # Usage: sh scripts/hooks/test-hooks.sh
-# Exit status: 0 when all 17 cases pass.
+# Exit status: 0 when all 19 cases pass.
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 PASS=0
@@ -23,8 +23,10 @@ rand() { tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c "$1"; }
 # Secret variable names, kept in variables so this file never contains a
 # literal NAME=value pattern that the hook would (correctly) block.
 V_GEMINI="GOOGLE_GENERATIVE_AI_API_KEY"
+V_GROQ="GROQ_API_KEY"
 V_SB="SUPABASE_SECRET_KEY"
 FAKE_GEMINI="AIza$(rand 35)"
+FAKE_GROQ="gsk_$(rand 48)"
 FAKE_SB="sb_secret_$(rand 32)"
 FAKE_JWT="eyJ$(rand 20).eyJ$(rand 20).$(rand 20)"
 
@@ -54,6 +56,12 @@ ok "1 clean commit passes" "$(commit clean)" "0"
 
 printf 'key = "%s"\n' "$FAKE_GEMINI" > bad.ts; git add bad.ts
 ok "2 gemini key blocked" "$(commit bad-gemini)" "1"; git reset -q --hard HEAD; rm -f bad.ts
+
+printf 'key = "%s"\n' "$FAKE_GROQ" > bad.ts; git add bad.ts
+ok "2b groq key blocked" "$(commit bad-groq)" "1"; git reset -q --hard HEAD; rm -f bad.ts
+
+printf '%s=%s\n' "$V_GROQ" "$FAKE_GROQ" > config.ts; git add config.ts
+ok "2c groq var in .ts blocked" "$(commit bad-groq-var)" "1"; git reset -q --hard HEAD; rm -f config.ts
 
 printf 'key = "%s"\n' "$FAKE_SB" > bad.ts; git add bad.ts
 ok "3 supabase secret blocked" "$(commit bad-sb)" "1"; git reset -q --hard HEAD; rm -f bad.ts
@@ -114,5 +122,5 @@ printf '%s=\n' "$V_GEMINI" > .env.example; git add .env.example; git commit -qm 
 ok "16 .env.example push passes" "$(push main)" "0"
 
 echo "---"
-echo "PASS: $PASS FAIL: $FAIL (17 cases)"
+echo "PASS: $PASS FAIL: $FAIL (19 cases)"
 [ "$FAIL" -eq 0 ]

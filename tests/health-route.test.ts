@@ -72,7 +72,7 @@ describe("GET /api/health (usage meters)", () => {
     const body = await res.json();
     expect(body.status).toBe("online");
     expect(body.usage).toBe(3);
-    expect(body.cap).toBe(20);
+    expect(body.cap).toBe(1000);
     expect(body.searchUsage).toBe(50);
     expect(body.searchCap).toBe(1000);
   });

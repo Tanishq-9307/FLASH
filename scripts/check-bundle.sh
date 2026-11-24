@@ -20,8 +20,8 @@ fi
 
 # 1. Key shapes that must never appear in client JavaScript.
 #    sb_secret_…  Supabase secret (service-role) key.
-#    AIza…        Google (Gemini) API key: "AIza" + 35 characters.
-for pattern in 'sb_secret_[A-Za-z0-9_-]+' 'AIza[0-9A-Za-z_-]{35}'; do
+#    gsk_…         Groq API key: "gsk_" + 20 or more characters.
+for pattern in 'sb_secret_[A-Za-z0-9_-]+' 'gsk_[A-Za-z0-9_-]{20,}'; do
   if grep -rEq "$pattern" .next/static; then
     echo "FAIL: key shape '$pattern' found in .next/static"
     fail=1
@@ -29,7 +29,7 @@ for pattern in 'sb_secret_[A-Za-z0-9_-]+' 'AIza[0-9A-Za-z_-]{35}'; do
 done
 
 # 2. Secret variable names must not be bundled either.
-for name in SUPABASE_SECRET_KEY GOOGLE_GENERATIVE_AI_API_KEY ELEVENLABS_API_KEY; do
+for name in SUPABASE_SECRET_KEY GROQ_API_KEY ELEVENLABS_API_KEY; do
   if grep -rFq "$name" .next/static; then
     echo "FAIL: secret variable name '$name' found in .next/static"
     fail=1
@@ -41,7 +41,7 @@ done
 if [ -f .env.local ]; then
   while IFS='=' read -r key value; do
     case "$key" in
-      SUPABASE_SECRET_KEY | GOOGLE_GENERATIVE_AI_API_KEY | ELEVENLABS_API_KEY)
+      SUPABASE_SECRET_KEY | GROQ_API_KEY | ELEVENLABS_API_KEY)
         # Strip surrounding quotes, if any.
         value="${value%\"}"
         value="${value#\"}"

@@ -93,11 +93,11 @@ Server-side keys and validation; ownership checks; rate limits; protected upload
 | Setting | Value | Status |
 |---|---|---|
 | Approval lifetime | 5 minutes, configurable (tests use seconds) | [PROPOSED] |
-| Daily model-call cap | 20 calls per day (Gemini free tier allows 20 requests per day); counts model calls, not chat messages | [DECIDED] M1-0 |
+| Daily model-call cap | 1,000 calls per day (Groq free tier allows 1,000 requests per day for llama-3.3-70b-versatile); counts model calls, not chat messages; display limit only since 2026-11-24 — chat is never blocked by it | [DECIDED] M1-0 |
 | Day boundary for the cap | `Asia/Kolkata` midnight | [PROPOSED] |
 | Maximum model calls per request | 3 | [PROPOSED] |
 | Maximum execution retries per approval | 3 | [PROPOSED] |
-| Gemini model and real free-tier limits | `gemini-3.8-flash`; RPM 5, TPM about 250,000, RPD 20 (requests per day) | [DECIDED] M1-0 |
+| Groq model and real free-tier limits | `llama-3.3-70b-versatile`; RPM 30, TPM 12,000, RPD 1,000, TPD 100,000 tokens | [DECIDED] M1-0, switched from Gemini 2026-11-24 |
 | Privacy of free-tier prompts | Free tier; non-sensitive memories only; warning on the Memory screen (Section 9) | [DECIDED] M3-0 |
 
 ## 7. Milestones and Acceptance Criteria
@@ -161,8 +161,8 @@ Development is gated: a milestone is complete only when its acceptance criteria 
 
 ## 9. Risks and Open Items
 
-- [DECIDED, M3-0, owner 2026-11-07] **Privacy:** stay on the free Gemini tier. Only non-sensitive facts go into memories and chats; the Memory screen shows a permanent warning. Google's data-logging page (updated 2026-10-26) says not to include personal, sensitive or confidential information. Revisit (paid tier or another provider) if FLASH ever needs sensitive data.
-- [x] Gemini model `gemini-3.8-flash` and free-tier limits (M1-0).
+- [DECIDED, M3-0, owner 2026-11-07] **Privacy:** stay on a free tier. Only non-sensitive facts go into memories and chats; the Memory screen shows a permanent warning. Provider is Groq since 2026-11-24 (was Gemini): Groq's Services Agreement §4.2 bars training on inputs/outputs and inference data is not retained by default. Revisit (paid tier or another provider) if FLASH ever needs sensitive data.
+- [x] Groq model `llama-3.3-70b-versatile` and free-tier limits (switched from Gemini `gemini-3.8-flash` 2026-11-24).
 - [x] Supabase JWT lifetime: default 3600 seconds (M1-0). Resolved: Next.js interception file `proxy.ts` (M0-0); Postgres 17.11 on dev (M2-0).
 - **Free-tier pausing:** Supabase pauses free projects after about a week of low activity. Use the app regularly or resume from the dashboard.
 - **Residual risk:** approvals protect against the model and injected content, not against a stolen session (ARCHITECTURE.md Section 3).

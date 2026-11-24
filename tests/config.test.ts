@@ -1,5 +1,5 @@
 // Unit tests for lib/config.ts (M1-6): the daily cap default is the
-// decided 20, the env override wins, and a bad override fails closed.
+// decided 1000 (Groq free tier, since the 2026-11-24 provider switch),
 // The monthly search limit is a display limit only (owner decision
 // 2026-11-24): a bad override falls back to the default instead of
 // failing closed, because nothing is blocked by it.
@@ -11,8 +11,8 @@ describe("modelCallCap", () => {
     delete process.env.DAILY_MODEL_CALL_CAP;
   });
 
-  it("defaults to 20 (PRD §6 [DECIDED])", () => {
-    expect(modelCallCap()).toBe(20);
+  it("defaults to 1000 (PRD §6 [DECIDED] — Groq free tier)", () => {
+    expect(modelCallCap()).toBe(1000);
   });
 
   it("uses the env override", () => {
@@ -22,7 +22,7 @@ describe("modelCallCap", () => {
 
   it("treats an empty override as unset", () => {
     process.env.DAILY_MODEL_CALL_CAP = "  ";
-    expect(modelCallCap()).toBe(20);
+    expect(modelCallCap()).toBe(1000);
   });
 
   it("fails closed to 0 on a non-numeric override", () => {

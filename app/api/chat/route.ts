@@ -76,7 +76,7 @@
 // Depth: at most 3 model calls per request (ARCHITECTURE.md §6). The
 // counter resets on each new user message or regenerate request.
 import { NextResponse } from "next/server";
-import { google } from "@ai-sdk/google";
+import { groq } from "@ai-sdk/groq";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -432,7 +432,7 @@ export async function POST(request: Request) {
         let result: ReturnType<typeof streamText>;
         try {
           result = streamText({
-            model: google("gemini-3.8-flash"),
+            model: groq("llama-3.3-70b-versatile"),
             instructions,
             messages: modelMessages,
             tools: toModelTools(),

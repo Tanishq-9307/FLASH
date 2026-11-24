@@ -12,7 +12,8 @@
 # It NEVER prints the matched value.
 #
 # Patterns:
-#   GEMINI_KEY      Google API key: AIza + 35 base64url chars.
+#   GEMINI_KEY      Google API key: AIza + 35 base64url chars (kept: a pasted Google key is still a secret).
+#   GROQ_KEY        Groq API key: gsk_ + 20 or more chars.
 #   SUPABASE_SECRET Supabase secret key: sb_secret_ + 16 or more chars.
 #   LEGACY_JWT      Legacy Supabase anon/service-role JWT (three
 #                   dot-separated base64url segments, first starts eyJ).
@@ -32,11 +33,13 @@ cat > "$tmp"
 matched=""
 if grep -q -E 'AIza[0-9A-Za-z_-]{35}' "$tmp" 2>/dev/null; then
   matched="GEMINI_KEY"
+elif grep -q -E 'gsk_[A-Za-z0-9_-]{20,}' "$tmp" 2>/dev/null; then
+  matched="GROQ_KEY"
 elif grep -q -E 'sb_secret_[A-Za-z0-9_-]{16,}' "$tmp" 2>/dev/null; then
   matched="SUPABASE_SECRET"
 elif grep -q -E 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' "$tmp" 2>/dev/null; then
   matched="LEGACY_JWT"
-elif [ "$check_vars" -eq 1 ] && grep -q -E '(GOOGLE_GENERATIVE_AI_API_KEY|SUPABASE_SECRET_KEY|ELEVENLABS_API_KEY|TAVILY_API_KEY)[[:space:]]*=[[:space:]]*[^[:space:]#]+' "$tmp" 2>/dev/null; then
+elif [ "$check_vars" -eq 1 ] && grep -q -E '(GOOGLE_GENERATIVE_AI_API_KEY|GROQ_API_KEY|SUPABASE_SECRET_KEY|ELEVENLABS_API_KEY|TAVILY_API_KEY)[[:space:]]*=[[:space:]]*[^[:space:]#]+' "$tmp" 2>/dev/null; then
   matched="SECRET_VAR"
 fi
 

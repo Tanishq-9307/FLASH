@@ -15,7 +15,7 @@
 // 4. Return { text }.
 //
 // No model-cap reservation: transcription is not a model call, and the
-// daily cap of 20 governs Gemini replies only. The free Scribe allowance
+// daily cap of 1000 governs Groq replies only. The free Scribe allowance
 // (about 4 h 30 min/month) is the backstop; ElevenLabs refuses when it
 // runs out. CSP needs: none — the browser only fetches this same-origin
 // route; ElevenLabs is called server-side.

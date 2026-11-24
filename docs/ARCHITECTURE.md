@@ -184,7 +184,7 @@ DO UPDATE SET model_calls = api_usage.model_calls + 1
 RETURNING model_calls;
 ```
 
-3. **Display limit:** [DECIDED] 20 model calls per day (M1-0, 2026-11-07), matching the Gemini free tier's 20 requests per day. The limit counts model calls, not chat messages. Env override `DAILY_MODEL_CALL_CAP`. Since 2026-11-24 this is a display limit only: the usage meter shows today's usage as a percentage of it, and chat is never blocked by it.
+3. **Display limit:** [DECIDED] 1,000 model calls per day (M1-0, 2026-11-07, updated 2026-11-24 with the Groq switch), matching the Groq free tier's 1,000 requests per day for llama-3.3-70b-versatile. The limit counts model calls, not chat messages. Env override `DAILY_MODEL_CALL_CAP`. Since 2026-11-24 this is a display limit only: the usage meter shows today's usage as a percentage of it, and chat is never blocked by it.
 4. **Day boundary:** [PROPOSED] `Asia/Kolkata` midnight, so resets match local time. UTC is the alternative.
 5. **Refunds:** only if the server deliberately aborts before dispatching to the provider. Never refund timeouts, dropped connections, or provider 5xx errors, because the provider may already have used quota. Clamp at zero, applied to the original record date. A crashed server cannot issue refunds, so a crash simply costs one call.
 
@@ -426,8 +426,8 @@ sequenceDiagram
 
 - [x] Supabase JWT expiry: default 3600 seconds; not shown in the dashboard after the signing-key migration (M1-0, TECH_STACK.md 3.2).
 - [x] Pinned Next.js version and the matching request-interception file name: Next.js 16.4.1, `proxy.ts` (M0-0, 2026-10-16).
-- [x] Gemini model `gemini-3.8-flash`, free tier RPM 5, TPM about 250,000, RPD 20 (requests per day) (M1-0, TECH_STACK.md 3.3).
-- [x] Privacy (M3-0, owner 2026-11-07): free Gemini tier, non-sensitive memories only, warning on the Memory screen (PRD.md Section 9, TECH_STACK.md 3.3).
-- [DECIDED] 20 model calls per day cap (M1-0). [PROPOSED] 5-minute approval TTL, depth limit 3, retry limit 3, `Asia/Kolkata` day boundary.
+- [x] Groq model `llama-3.3-70b-versatile`, free tier RPM 30, TPM 12,000, RPD 1,000, TPD 100,000 (switched from Gemini `gemini-3.8-flash` 2026-11-24, TECH_STACK.md 3.3).
+- [x] Privacy (M3-0, owner 2026-11-07): free tier, non-sensitive memories only, warning on the Memory screen (PRD.md Section 9, TECH_STACK.md 3.3). Provider is now Groq, not Gemini (switch 2026-11-24); Groq's agreement bars training on inputs/outputs.
+- [DECIDED] 1,000 model calls per day display limit (M1-0, updated 2026-11-24 for Groq). [PROPOSED] 5-minute approval TTL, depth limit 3, retry limit 3, `Asia/Kolkata` day boundary.
 - [PROPOSED] Separate `POST /api/chat/resume` route; merging `log_tool_proposal` into `create_pending_approval`.
 

@@ -265,7 +265,7 @@ Any internal helper (for example the shared expiry logic) is not granted to any 
 - Verified (M0-4, 2026-10-18): the Supabase free-plan database size limit is 500 MB per project. Above it the project goes read-only. Keep action-log volume well under it. Sources: supabase.com/pricing and supabase.com/docs/guides/platform/database-size.
 - [x] Supabase JWT expiry: default 3600 seconds (M1-0, TECH_STACK.md 3.2).
 - Resolved in M0-0: Next.js 16.4.1, interception file `proxy.ts` (TECH_STACK.md Section 2).
-- [x] Gemini model `gemini-3.8-flash` and free-tier limits recorded in M1-0 (TECH_STACK.md 3.3).
-- [x] Privacy decision (M3-0, owner 2026-11-07; resolved in the FLASH build 2026-11-23): free-tier Gemini prompts may be used to improve Google products, so only non-sensitive facts go into memories and chats, with a permanent warning on the Memory screen (PRD.md §9, TECH_STACK.md §3.3, ARCHITECTURE.md §13).
+- [x] Groq model `llama-3.3-70b-versatile` and free-tier limits recorded in M1-0, switched from Gemini 2026-11-24 (TECH_STACK.md 3.3).
+- [x] Privacy decision (M3-0, owner 2026-11-07; resolved in the FLASH build 2026-11-23): free-tier prompts, so only non-sensitive facts go into memories and chats. Provider is Groq since 2026-11-24 (was Gemini); Groq's agreement bars training on inputs/outputs, with a permanent warning on the Memory screen (PRD.md §9, TECH_STACK.md §3.3, ARCHITECTURE.md §13).
 - [PROPOSED] Size limits (16 KB parameters, 32 KB log result, 100,000 characters for messages and notes) and the `NO ACTION` choice for the log-to-approval foreign key.
 

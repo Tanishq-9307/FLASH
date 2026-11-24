@@ -44,7 +44,7 @@ import {
   createUIMessageStreamResponse,
   streamText,
 } from "ai";
-import { google } from "@ai-sdk/google";
+import { groq } from "@ai-sdk/groq";
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
   let result: ReturnType<typeof streamText>;
   try {
     result = streamText({
-      model: google("gemini-3.8-flash"),
+      model: groq("llama-3.3-70b-versatile"),
       instructions,
       messages: modelMessages,
       abortSignal: request.signal,

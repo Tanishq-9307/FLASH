@@ -1,6 +1,6 @@
 # FLASH: project instructions for Muse
 
-FLASH is a private, single-user web assistant (Next.js, TypeScript, Supabase, Vercel, Gemini via the Vercel AI SDK). It chats, keeps approved memories, manages tasks and notes, and runs registered tools only after the owner approves.
+FLASH is a private, single-user web assistant (Next.js, TypeScript, Supabase, Vercel, Groq via the Vercel AI SDK). It chats, keeps approved memories, manages tasks and notes, and runs registered tools only after the owner approves.
 
 **The most important rule:** FLASH never claims an action succeeded unless the database confirms it. Neither do you: never claim code works, tests pass, or a deploy succeeded without showing the real output.
 

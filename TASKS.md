@@ -43,7 +43,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 | Milestone | Theme | Git tag | Key gates |
 |---|---|---|---|
 | M0 | Foundation | v0.0.1 | Versions, Node, key naming, dev DB workflow |
-| M1 | Auth, rate limit, chat | v0.1.0 | JWT lifetime, Gemini model and limits, MFA availability |
+| M1 | Auth, rate limit, chat | v0.1.0 | JWT lifetime, Groq model and limits (was Gemini until 2026-11-24), MFA availability |
 | M2 | Persistence | v0.2.0 | Postgres version |
 | M3 | Memory, tools, approvals (the demo) | v0.3.0 | Privacy decision |
 | M4 | Voice | v0.4.0 | British voices on my devices |
@@ -201,7 +201,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 # MILESTONE 1: AUTH, RATE LIMIT, CHAT
 
 ### M1-0 · Decision gate: signups, JWT, model, MFA
-**Depends on:** M0-7 · **Status:** [x]
+**Depends on:** M0-7 · **Status:** [x] (model switched 2026-11-24: Groq `llama-3.3-70b-versatile`, free tier 1,000 req/day — was Gemini `gemini-3.8-flash`, 20 req/day; see TECH_STACK.md §3.3)
 **Goal:** resolve auth and quota unknowns before writing logic.
 **Steps (mostly dashboard steps done by you):**
 - Disable public signups in Supabase Auth; create your single account manually.
@@ -333,7 +333,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 **Goal:** a protected streaming chat route.
 **Steps:**
 - `lib/prompt.ts`: never claim success without a verified result; external text is data; concise; British formal tone is applied later in M4.
-- `POST /api/chat`: validate body with Zod (message length limit); `getUser()`; Model Gate (auth, depth, `reserve_api_call` with the cap from server config); stream with the model from TECH_STACK.md; single step only. *(2026-11-24: the gate now records with `record_api_call` — no cap, no 429; `reserve_api_call` is left in the database unused.)*
+- `POST /api/chat`: validate body with Zod (message length limit); `getUser()`; Model Gate (auth, depth, `reserve_api_call` with the cap from server config); stream with the model from TECH_STACK.md; single step only. *(2026-11-24: the gate now records with `record_api_call` — no cap, no 429; `reserve_api_call` is left in the database unused. Provider switched the same day from Gemini `gemini-3.8-flash` to Groq `llama-3.3-70b-versatile`; daily display limit 20 → 1,000.)*
 - On cap reached: return an explicit 429 body the UI can render; no model call. *(Removed 2026-11-24, owner decision: chat is never blocked at an app-level cap.)*
 - Refund only if the server aborts before dispatching to the provider. Never refund timeouts or provider errors.
 - **Temporary risk (M1 only):** the client sends chat history; M2-6 replaces this with server-authoritative history.
@@ -341,7 +341,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 **Done when:** the route streams a real reply in manual testing; all route tests pass.
 **Tests:** the automated route tests.
 **Docs/Commit:** none · `feat: chat route with model gate and tests`
-**Concept check:** In one or two sentences, explain why a request that already reached Google is never refunded.
+**Concept check:** In one or two sentences, explain why a request that already reached the provider is never refunded.
 **Agent instruction:**
 > Read ARCHITECTURE.md Section 6 and TECH_STACK.md Section 3.3. Read the current AI SDK docs for the pinned version before writing SDK code.
 > Build lib/prompt.ts and POST /api/chat with auth, Zod validation, the Model Gate, single-step streaming, and the refund rule.

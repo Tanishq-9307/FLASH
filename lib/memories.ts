@@ -21,8 +21,13 @@ export const memoryFactSchema = z
   .transform((value) => value.trim())
   .pipe(z.string().min(1).max(MAX_MEMORY_FACT));
 
-/** The M3-0 privacy decision (TECH_STACK.md §3.3, PRD.md §9):
- * FLASH runs on the free Gemini tier, so only non-sensitive facts
+/** The M3-0 privacy decision (TECH_STACK.md §3.3, PRD.md §9), updated
+ * for the Groq switch (2026-11-24): FLASH runs on Groq's free tier.
+ * Groq's Services Agreement §4.2 bars Groq from using inputs or
+ * outputs to train or fine-tune models, and inference data is not
+ * retained by default (up to 30-day logs only for troubleshooting or
+ * abuse; Zero Data Retention is available in the console). The
+ * non-sensitive-only rule stays regardless: only non-sensitive facts
  * belong in memories. Shown on the Memory screen and in Settings. */
 export const MEMORY_PRIVACY_WARNING =
-  "FLASH runs on Google's free Gemini tier. Free-tier prompts may be used by Google to improve its products, and human reviewers may read them — so only save non-sensitive facts here. Never save passwords, financial details, health information, or anything confidential.";
+  "FLASH runs on Groq's free tier. Groq does not use your prompts to train models, and does not retain them by default — but only save non-sensitive facts here anyway. Never save passwords, financial details, health information, or anything confidential.";
