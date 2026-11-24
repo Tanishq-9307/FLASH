@@ -26,6 +26,11 @@
   --color-info: #60a5fa;
   --color-on-accent: #04121a;
 
+  /* DESIGN.md Section 7: motion easing (cubic-bezier(0.4, 0, 0.2, 1) for
+     panel/dialog changes; expo-out for rising captions). */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
   /* Orb state family (DESIGN-REFERENCES.md §6, Electric Cyan tint per
      the orb-follows-theme rule): idle, listening, thinking, speaking. */
   --color-orb-idle: #00e5ff;
@@ -131,16 +136,112 @@ body::before {
 }
 
 /* DESIGN.md Section 7: honour prefers-reduced-motion — transitions instant,
-   background grid removed. */
+   background grid removed. One-shot animations also stop looping, so the
+   boot/tour/orb effects render as a single static frame. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 
   body::before {
     display: none;
   }
+}
+
+/* DESIGN.md Section 7 (M2-9a): panel entrances. `.flash-enter` rises a
+   panel into place; set `--enter-delay` (ms) on the element to stagger a
+   group. The delay is capped in the Overview so the whole screen has
+   assembled within a second. */
+.flash-enter {
+  animation: flash-panel-in 0.65s var(--ease-standard) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@keyframes flash-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* DESIGN.md Section 7 (M2-9a): boot overlay. A spinning wireframe globe,
+   two light streaks crossing the screen, the wordmark rising in, and a
+   fade-out. No percentage counter, no progress bar — anywhere. */
+@keyframes flash-boot-globe-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes flash-boot-streak {
+  from { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  to { transform: translateX(140%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes flash-boot-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flash-boot-burst {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  30% { opacity: 1; }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+}
+
+@keyframes flash-boot-fade {
+  0% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* DESIGN.md Section 7 (M2-9a): tour. The highlight ring pulses while a step
+   is shown and carries the dimming shadow that darkens the rest of the
+   screen; a light sweep crosses it; each caption rises in. The ring element
+   glides between steps (its top/left/width/height transition in the
+   component). */
+@keyframes flash-tour-ring {
+  0% { box-shadow: 0 0 0 2px rgb(0 229 255 / 0.95), 0 0 28px 4px rgb(0 229 255 / 0.45), 0 0 0 9999px rgb(2 10 20 / 0.78); }
+  50% { box-shadow: 0 0 0 2px rgb(125 249 255 / 1), 0 0 44px 10px rgb(0 229 255 / 0.6), 0 0 0 9999px rgb(2 10 20 / 0.78); }
+  100% { box-shadow: 0 0 0 2px rgb(0 229 255 / 0.95), 0 0 28px 4px rgb(0 229 255 / 0.45), 0 0 0 9999px rgb(2 10 20 / 0.78); }
+}
+
+@keyframes flash-tour-sweep {
+  from { transform: translateX(-160%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
+}
+
+@keyframes flash-tour-caption-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* DESIGN.md Section 6 (M2-9a, orb placeholder): the state-morphing orb.
+   Each state is a distinct silhouette, not just a colour change — idle is a
+   calm ring, listening expands rings outward, thinking spins a torus swirl,
+   speaking pulses its nucleus. The real particle-galaxy orb (M4-4) replaces
+   this component and keeps the same `state` prop. */
+@keyframes flash-orb-listening-ring {
+  from { opacity: 0.9; transform: scale(0.55); }
+  to { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes flash-orb-thinking-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes flash-orb-speaking-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.75; }
+  100% { transform: scale(1); opacity: 1; }
 }

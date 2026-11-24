@@ -545,7 +545,7 @@ Task statuses: `[ ]` not started, `[~]` in progress, `[x]` done, `[!]` blocked. 
 > Add validation and search tests. Run the checkpoint routine.
 
 ### M2-9a · UI: Overview layout and components
-**Depends on:** M2-8a, M2-8b, M1-9 · **Status:** [ ] (deferred — UI pass per owner instruction 2026-11-23)
+**Depends on:** M2-8a, M2-8b, M1-9 · **Status:** [x] (done 2026-11-24, UI pass)
 **Goal:** the mockup layout as reusable components.
 **Steps:** per DESIGN.md Sections 1, 2, 3.1, and 5 and the mockup: three-zone layout, panel frame with corner brackets, ring-gauge component, task and note list components, static orb placeholder, greeting, quick actions (New task, New note). Every component takes its data through props and handles normal, empty, and unavailable states. No mock data ships (test fixtures only). Panels that depend on M3 are not shown yet.
 **Done when:** the layout matches the mockup at 1280px and collapses per DESIGN.md 5.2 (checked with fixture data in tests).
