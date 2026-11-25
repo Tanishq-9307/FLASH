@@ -134,6 +134,51 @@ describe("note board (M2-8b)", () => {
     expect(screen.getByText("PID notes")).toBeInTheDocument();
   });
 
+  // Clipboard paste (Phase 1, 2026-11-25): pasting appends to the
+  // new-note text field and saves nothing until "Save note".
+  it("paste from clipboard appends to the new-note text", async () => {
+    Object.defineProperty(window.navigator, "clipboard", {
+      value: { readText: async () => "pasted content" },
+      configurable: true,
+    });
+    try {
+      renderBoard([]);
+      fireEvent.click(screen.getByText("New note"));
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      const content = screen.getByLabelText("Text") as HTMLTextAreaElement;
+      await waitFor(() => expect(content.value).toBe("pasted content"));
+      expect(mockCreate).not.toHaveBeenCalled();
+    } finally {
+      delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("denied clipboard permission shows a message in the notes form", async () => {
+    const error = new Error("Permission denied");
+    error.name = "NotAllowedError";
+    Object.defineProperty(window.navigator, "clipboard", {
+      value: {
+        readText: async () => {
+          throw error;
+        },
+      },
+      configurable: true,
+    });
+    try {
+      renderBoard([]);
+      fireEvent.click(screen.getByText("New note"));
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Clipboard access was blocked",
+        ),
+      );
+      expect(mockCreate).not.toHaveBeenCalled();
+    } finally {
+      delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("edits a note only after the server confirms it", async () => {
     const edited = { ...KINEMATICS, content: "Inverse kinematics is the hard direction." };
     mockEdit.mockResolvedValue({ ok: true, data: edited });

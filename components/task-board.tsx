@@ -18,6 +18,8 @@ import {
   timestampToDueDay,
   type Task,
 } from "@/lib/tasks";
+import { insertAtCursor } from "@/lib/clipboard";
+import { PasteFromClipboardButton } from "./clipboard-paste-button";
 
 const ERRORS: Record<TaskActionError, string> = {
   invalid: "A task needs a title of 1 to 255 characters and a real date.",
@@ -90,6 +92,10 @@ export function TaskBoard({ initial, today }: { initial: Task[]; today: string }
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [dueDay, setDueDay] = useState("");
+  // Clipboard paste (Phase 1): failure message for the new-task form.
+  // Pasted text is appended to the title field, never saved until the
+  // user presses "Add task".
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const put = (row: Task) =>
@@ -154,7 +160,18 @@ export function TaskBoard({ initial, today }: { initial: Task[]; today: string }
         >
           {pending ? "Adding…" : "Add task"}
         </button>
+        <PasteFromClipboardButton
+          onPaste={(text) =>
+            setTitle((prev) => insertAtCursor(prev, text).value)
+          }
+          onNotice={setPasteNotice}
+        />
       </form>
+      {pasteNotice ? (
+        <p role="status" className="mt-3 text-sm text-text-secondary">
+          {pasteNotice}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="mt-3 text-sm text-danger">
           {error}

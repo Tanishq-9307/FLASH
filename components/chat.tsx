@@ -21,6 +21,8 @@ import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 import { useRefreshConversations } from "./conversations-context";
 import { createChatLatencyTracker, recordChatLatency } from "@/lib/telemetry";
+import { insertAtCursor } from "@/lib/clipboard";
+import { PasteFromClipboardButton } from "./clipboard-paste-button";
 import { researchedDataOf } from "@/lib/chat-history";
 import { PRIMARY_MODEL_ID, modelIdFor } from "@/lib/ai/models";
 import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
@@ -63,6 +65,27 @@ export default function Chat({
 }) {
   const [input, setInput] = useState("");
   const router = useRouter();
+  // Clipboard paste (Phase 1): the composer textarea ref, the caret to
+  // restore after a paste lands, and the last paste failure message.
+  // Pasted text is inserted into the composer only — it is sent only
+  // when the user presses Send, exactly like typed text.
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // The caret to restore after a paste lands. A ref, not state: the
+  // effect below only moves the DOM caret, it sets no state.
+  const pendingCaretRef = useRef<number | null>(null);
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  // After the pasted text lands in the composer (input changed),
+  // put the caret just after it and keep focus in the field.
+  useEffect(() => {
+    const caret = pendingCaretRef.current;
+    if (caret === null) return;
+    pendingCaretRef.current = null;
+    const field = composerRef.current;
+    if (field) {
+      field.focus();
+      field.setSelectionRange(caret, caret);
+    }
+  }, [input]);
   // The approval the dialog is open for: from the chat stream's
   // data-approval part, or from the page's openApprovalId prop.
   const [approvalId, setApprovalId] = useState<string | null>(openApprovalId ?? null);
@@ -246,6 +269,21 @@ export default function Chat({
     void sendMessage({ text });
   }
 
+  // Clipboard paste (Phase 1): insert the pasted text at the caret
+  // (or append at the end) and put the caret just after it. The text
+  // is ordinary composer input — nothing is sent here.
+  function handlePaste(text: string) {
+    const field = composerRef.current;
+    const { value, caret } = insertAtCursor(
+      input,
+      text,
+      field?.selectionStart ?? undefined,
+      field?.selectionEnd ?? undefined,
+    );
+    setInput(value);
+    pendingCaretRef.current = caret;
+  }
+
   // The last assistant message: the live-researched bridge belongs
   // to it while its stream is in flight.
   const lastAssistantId = [...messages]
@@ -403,6 +441,7 @@ export default function Chat({
         </label>
         <textarea
           id="chat-composer"
+          ref={composerRef}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -414,6 +453,14 @@ export default function Chat({
           rows={1}
           placeholder="Ask FLASH anything…"
           className="min-h-11 flex-1 rounded-md border border-border-strong bg-surface px-3 py-2 text-text-primary placeholder:text-text-muted"
+        />
+        {/* Clipboard paste (Phase 1): reads only on tap, inserts into
+            the composer, never sends. Disabled while a reply streams,
+            like Send. */}
+        <PasteFromClipboardButton
+          onPaste={handlePaste}
+          onNotice={setPasteNotice}
+          disabled={isStreaming}
         />
         {isStreaming ? (
           <button
@@ -439,6 +486,11 @@ export default function Chat({
           </button>
         )}
       </form>
+      {pasteNotice ? (
+        <p role="status" className="mt-2 text-center text-sm text-text-secondary">
+          {pasteNotice}
+        </p>
+      ) : null}
     </main>
   );
 }

@@ -99,6 +99,49 @@ describe("task board (M2-8a)", () => {
     expect(screen.getByLabelText("New task")).toHaveValue("Water plants");
   });
 
+  // Clipboard paste (Phase 1, 2026-11-25): pasting appends to the
+  // new-task title field and creates nothing until "Add task".
+  it("paste from clipboard appends to the new-task title", async () => {
+    Object.defineProperty(window.navigator, "clipboard", {
+      value: { readText: async () => "pasted task" },
+      configurable: true,
+    });
+    try {
+      renderBoard([]);
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      const title = screen.getByLabelText("New task") as HTMLInputElement;
+      await waitFor(() => expect(title.value).toBe("pasted task"));
+      expect(mockCreate).not.toHaveBeenCalled();
+    } finally {
+      delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("denied clipboard permission shows a message in the task form", async () => {
+    const error = new Error("Permission denied");
+    error.name = "NotAllowedError";
+    Object.defineProperty(window.navigator, "clipboard", {
+      value: {
+        readText: async () => {
+          throw error;
+        },
+      },
+      configurable: true,
+    });
+    try {
+      renderBoard([]);
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Clipboard access was blocked",
+        ),
+      );
+      expect(mockCreate).not.toHaveBeenCalled();
+    } finally {
+      delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("completing a task calls setTaskStatus and moves it", async () => {
     mockSetStatus.mockResolvedValue({
       ok: true,

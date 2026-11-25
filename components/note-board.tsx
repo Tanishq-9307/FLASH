@@ -19,6 +19,8 @@ import {
   MAX_SEARCH_CHARS,
   type Note,
 } from "@/lib/notes";
+import { insertAtCursor } from "@/lib/clipboard";
+import { PasteFromClipboardButton } from "./clipboard-paste-button";
 
 const ERRORS: Record<NoteActionError, string> = {
   invalid:
@@ -93,6 +95,10 @@ export function NoteBoard({ initial }: { initial: Note[] }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Clipboard paste (Phase 1): failure message for the new-note form.
+  // Pasted text is appended to the content field, never saved until
+  // the user presses "Save note".
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const show = (result: { ok: true } | { ok: false; error: NoteActionError }) =>
@@ -196,9 +202,17 @@ export function NoteBoard({ initial }: { initial: Note[] }) {
             onChange={(e) => setTitle(e.target.value)}
             className={`${field} h-11`}
           />
-          <label htmlFor="new-note-content" className="text-sm text-text-secondary">
-            Text
-          </label>
+          <div className="flex items-end justify-between gap-2">
+            <label htmlFor="new-note-content" className="text-sm text-text-secondary">
+              Text
+            </label>
+            <PasteFromClipboardButton
+              onPaste={(text) =>
+                setContent((prev) => insertAtCursor(prev, text).value)
+              }
+              onNotice={setPasteNotice}
+            />
+          </div>
           <textarea
             id="new-note-content"
             value={content}
@@ -216,6 +230,12 @@ export function NoteBoard({ initial }: { initial: Note[] }) {
           </button>
         </form>
       </details>
+
+      {pasteNotice ? (
+        <p role="status" className="mt-3 text-sm text-text-secondary">
+          {pasteNotice}
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-sm text-danger">

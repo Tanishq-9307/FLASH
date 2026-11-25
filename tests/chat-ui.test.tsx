@@ -4,7 +4,8 @@
 // transport failure is represented by a real APICallError, exactly what
 // the transport throws. (There is no cap-reached notice any more —
 // owner decision 2026-11-24.)
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { APICallError } from "ai";
 import Chat from "@/components/chat";
@@ -102,6 +103,21 @@ function researchedAssistantMessage(
   };
 }
 
+// Clipboard (Phase 1): jsdom has no navigator.clipboard, so paste
+// tests install a fake for one test and remove it after.
+function installClipboard(readText: () => Promise<string>) {
+  Object.defineProperty(window.navigator, "clipboard", {
+    value: { readText },
+    configurable: true,
+  });
+}
+
+function uninstallClipboard() {
+  // Navigator declares clipboard as required in lib.dom, so the cast
+  // goes through unknown to make the property optional for delete.
+  delete (window.navigator as unknown as { clipboard?: unknown }).clipboard;
+}
+
 describe("Chat UI", () => {
   it("shows the empty state with no messages", () => {
     render(
@@ -190,6 +206,88 @@ describe("Chat UI", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Stop/ }));
     expect(chatState.current.stop).toHaveBeenCalledTimes(1);
+  });
+
+  // Clipboard paste (Phase 1, 2026-11-25): the button reads only on
+  // tap and inserts the text as ordinary composer input — nothing is
+  // sent until the user presses Send.
+  it("paste from clipboard fills the composer and sends nothing until Send", async () => {
+    installClipboard(async () => "pasted hello");
+    try {
+      render(
+        <QuickAskProvider>
+          <Chat />
+        </QuickAskProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      const input = screen.getByLabelText("Message FLASH") as HTMLTextAreaElement;
+      await waitFor(() => expect(input.value).toBe("pasted hello"));
+      expect(chatState.current.sendMessage).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+      expect(chatState.current.sendMessage).toHaveBeenCalledWith({
+        text: "pasted hello",
+      });
+      expect(input.value).toBe("");
+    } finally {
+      uninstallClipboard();
+    }
+  });
+
+  it("denied clipboard permission shows a message and leaves the composer alone", async () => {
+    const error = new Error("Permission denied");
+    error.name = "NotAllowedError";
+    installClipboard(async () => {
+      throw error;
+    });
+    try {
+      render(
+        <QuickAskProvider>
+          <Chat />
+        </QuickAskProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Clipboard access was blocked",
+        ),
+      );
+      expect(
+        (screen.getByLabelText("Message FLASH") as HTMLTextAreaElement).value,
+      ).toBe("");
+      expect(chatState.current.sendMessage).not.toHaveBeenCalled();
+    } finally {
+      uninstallClipboard();
+    }
+  });
+
+  it("no clipboard API shows the unavailable message with the keyboard fallback", async () => {
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Paste from clipboard" }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "isn't available in this browser",
+      ),
+    );
+    expect(screen.getByRole("status").textContent).toContain("Ctrl+V");
+    expect(chatState.current.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("paste button is disabled while streaming", () => {
+    chatState.current.status = "streaming";
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Paste from clipboard" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
   });
 
   it("shows the error state with Retry, and Retry regenerates", () => {
