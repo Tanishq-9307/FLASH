@@ -238,6 +238,7 @@ const EXPECTED_TABLES = [
   "search_usage",
   "settings",
   "tasks",
+  "telegram_nudges",
   "tool_approvals",
 ];
 
@@ -342,7 +343,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it("RLS is enabled on every table, and the table set is exactly the expected 12", async () => {
+  it("RLS is enabled on every table, and the table set is exactly the expected 13", async () => {
     const rows = await db.query<{ name: string; rls: boolean }>(
       `SELECT c.relname AS name, c.relrowsecurity AS rls
          FROM pg_class c
@@ -578,6 +579,10 @@ describe("database privilege matrix and retention (M3-14)", () => {
       "INSERT INTO api_usage (user_id, usage_date, model_calls) VALUES ($1, CURRENT_DATE, 3)",
       [doomed],
     );
+    await db.query(
+      "INSERT INTO telegram_nudges (user_id, nudge_key, kind, message) VALUES ($1, 'overdue:t1:2026-11-20', 'overdue_task', 'Overdue: x')",
+      [doomed],
+    );
 
     // A second user's data must survive the delete.
     await setTestUser(db, userA);
@@ -599,6 +604,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
       "action_logs",
       "settings",
       "api_usage",
+      "telegram_nudges",
     ]) {
       const count = await db.query<{ n: string }>(
         `SELECT count(*) AS n FROM ${table} WHERE user_id = $1`,

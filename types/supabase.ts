@@ -392,14 +392,17 @@ export type Database = {
         Row: {
           user_id: string
           memory_enabled: boolean
+          telegram_proactive_enabled: boolean
         }
         Insert: {
           user_id?: string
           memory_enabled?: boolean
+          telegram_proactive_enabled?: boolean
         }
         Update: {
           user_id?: string
           memory_enabled?: boolean
+          telegram_proactive_enabled?: boolean
         }
         Relationships: [
         ]
@@ -431,6 +434,31 @@ export type Database = {
           status?: string
           created_at?: string
           updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
+      telegram_nudges: {
+        Row: {
+          user_id: string
+          nudge_key: string
+          kind: string
+          message: string
+          sent_at: string
+        }
+        Insert: {
+          user_id: string
+          nudge_key: string
+          kind: string
+          message: string
+          sent_at?: string
+        }
+        Update: {
+          user_id?: string
+          nudge_key?: string
+          kind?: string
+          message?: string
+          sent_at?: string
         }
         Relationships: [
         ]
