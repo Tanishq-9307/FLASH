@@ -1,5 +1,5 @@
 #!/bin/bash
-# test-hooks.sh — prove the secret-scan hooks block secrets (20 cases).
+# test-hooks.sh — prove the secret-scan hooks block secrets (21 cases).
 #
 # Builds a throwaway repo + bare remote, installs the hooks there, and runs
 # the cases. Fake keys are generated at runtime from /dev/urandom and never
@@ -25,6 +25,7 @@ rand() { tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c "$1"; }
 V_GEMINI="GOOGLE_GENERATIVE_AI_API_KEY"
 V_GROQ="GROQ_API_KEY"
 V_OPENROUTER="OPENROUTER_API_KEY"
+V_VOYAGE="VOYAGE_API_KEY"
 V_SB="SUPABASE_SECRET_KEY"
 FAKE_GEMINI="AIza$(rand 35)"
 FAKE_GROQ="gsk_$(rand 48)"
@@ -66,6 +67,9 @@ ok "2c groq var in .ts blocked" "$(commit bad-groq-var)" "1"; git reset -q --har
 
 printf '%s=%s\n' "$V_OPENROUTER" "sk-or-fake-key" > config.ts; git add config.ts
 ok "2d openrouter var in .ts blocked" "$(commit bad-or-var)" "1"; git reset -q --hard HEAD; rm -f config.ts
+
+printf '%s=%s\n' "$V_VOYAGE" "pa-fake-key" > config.ts; git add config.ts
+ok "2e voyage var in .ts blocked" "$(commit bad-voyage-var)" "1"; git reset -q --hard HEAD; rm -f config.ts
 
 printf 'key = "%s"\n' "$FAKE_SB" > bad.ts; git add bad.ts
 ok "3 supabase secret blocked" "$(commit bad-sb)" "1"; git reset -q --hard HEAD; rm -f bad.ts
@@ -126,5 +130,5 @@ printf '%s=\n' "$V_GEMINI" > .env.example; git add .env.example; git commit -qm 
 ok "16 .env.example push passes" "$(push main)" "0"
 
 echo "---"
-echo "PASS: $PASS FAIL: $FAIL (20 cases)"
+echo "PASS: $PASS FAIL: $FAIL (21 cases)"
 [ "$FAIL" -eq 0 ]

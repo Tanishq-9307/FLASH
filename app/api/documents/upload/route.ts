@@ -42,6 +42,7 @@ import {
   preparePages,
 } from "@/lib/documents/extract";
 import { OcrError, extractImageText } from "@/lib/documents/ocr";
+import { embedDocumentPages } from "@/lib/vector-ingest";
 import {
   MAX_UPLOAD_BYTES,
   UPLOAD_HEAD_BYTES,
@@ -169,6 +170,18 @@ export async function POST(request: Request) {
   if (saveError) {
     console.error("Document extraction save failed", saveError);
     return NextResponse.json({ error: "extraction_failed" }, { status: 500 });
+  }
+
+  // Embed the ready pages best-effort (vector RAG, 2026-11-25): the
+  // document is saved and the upload succeeds either way — a missing
+  // key or a provider failure just leaves the pages unembedded, and
+  // the backfill script covers them later. Never fails the upload.
+  if (status === "ready" && pages !== null) {
+    try {
+      await embedDocumentPages(admin, user.id, id, pages);
+    } catch (err) {
+      console.error("Document page embedding failed unexpectedly", err);
+    }
   }
 
   return NextResponse.json({

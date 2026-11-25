@@ -159,6 +159,7 @@ export type Database = {
           page_number: number
           content: string
           search: string | null
+          embedding: number[] | null
         }
         Insert: {
           document_id: string
@@ -166,6 +167,7 @@ export type Database = {
           page_number: number
           content: string
           search?: string | null
+          embedding?: number[] | null
         }
         Update: {
           document_id?: string
@@ -173,6 +175,7 @@ export type Database = {
           page_number?: number
           content?: string
           search?: string | null
+          embedding?: number[] | null
         }
         Relationships: [
           {
@@ -252,6 +255,7 @@ export type Database = {
           fact: string
           created_at: string
           updated_at: string
+          embedding: number[] | null
         }
         Insert: {
           id?: string
@@ -259,6 +263,7 @@ export type Database = {
           fact: string
           created_at?: string
           updated_at?: string
+          embedding?: number[] | null
         }
         Update: {
           id?: string
@@ -266,6 +271,7 @@ export type Database = {
           fact?: string
           created_at?: string
           updated_at?: string
+          embedding?: number[] | null
         }
         Relationships: [
         ]
@@ -530,6 +536,13 @@ export type Database = {
         }
         Returns: { approval_id: string; approval_status: string }[]
       }
+      cosine_similarity: {
+        Args: {
+          a: number[] | null
+          b: number[] | null
+        }
+        Returns: number
+      }
       create_pending_approval: {
         Args: {
           p_user_id: string | null
@@ -628,6 +641,24 @@ export type Database = {
         }
         Returns: { approval_id: string; outcome_delivered_at: string }[]
       }
+      match_document_pages: {
+        Args: {
+          p_user_id: string | null
+          p_query_embedding: number[] | null
+          p_match_threshold: number | null
+          p_match_count: number | null
+        }
+        Returns: { document_id: string; document_title: string; page_number: number; content: string; similarity: number }[]
+      }
+      match_memories: {
+        Args: {
+          p_user_id: string | null
+          p_query_embedding: number[] | null
+          p_match_threshold: number | null
+          p_match_count: number | null
+        }
+        Returns: { id: string; fact: string; similarity: number }[]
+      }
       record_api_call: {
         Args: {
           p_user_id: string | null
@@ -698,6 +729,23 @@ export type Database = {
           p_status: string | null
           p_pages: Json | null
           p_error_code: string | null
+        }
+        Returns: undefined
+      }
+      save_document_page_embedding: {
+        Args: {
+          p_user_id: string | null
+          p_document_id: string | null
+          p_page_number: number | null
+          p_embedding: number[] | null
+        }
+        Returns: undefined
+      }
+      save_memory_embedding: {
+        Args: {
+          p_user_id: string | null
+          p_memory_id: string | null
+          p_embedding: number[] | null
         }
         Returns: undefined
       }

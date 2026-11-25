@@ -78,6 +78,7 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 
 ### 3.7 `memories` (M3)
 - Columns: `id`, `user_id` (FK, cascade), `fact text NOT NULL CHECK (char_length(btrim(fact)) BETWEEN 1 AND 10000)` (M3-1a: empty facts refused too), `created_at`, `updated_at`. Trigger: `set_updated_at`. Index: `(user_id)`.
+- Vector RAG (2026-11-25, migration `20261125013000_vector_memory_rag.sql`): `embedding real[]` (NULL = not embedded yet), CHECK that a non-NULL embedding is exactly 512 numbers. Written only by service-role `save_memory_embedding`; read for similarity only through service-role `match_memories`. See §3.14.
 - RLS: SELECT, INSERT, UPDATE, DELETE (this powers the user's own memory screen; the model can only add memories through the approval-gated `save_memory` tool).
 
 ### 3.8 `tool_approvals` (M3)
@@ -108,6 +109,7 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 
 ### 3.11 `document_pages` (M5) [DECIDED, M5-0 2026-11-07, owner approved]
 - Columns: `document_id uuid NOT NULL`, `user_id uuid NOT NULL DEFAULT auth.uid()`, `page_number integer NOT NULL CHECK (page_number BETWEEN 1 AND 300)`, `content text NOT NULL CHECK (char_length(content) <= 20000)`, `search tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED`.
+- Vector RAG (2026-11-25, migration `20261125013000_vector_memory_rag.sql`): `embedding real[]` (NULL = not embedded yet), CHECK that a non-NULL embedding is exactly 512 numbers. Written only by service-role `save_document_page_embedding`; read for similarity only through service-role `match_document_pages`. See §3.14.
 - Keys: `PRIMARY KEY (document_id, page_number)`; FK `(document_id, user_id)` to `documents (id, user_id) ON DELETE CASCADE`.
 - Index: GIN on `search` (`document_pages_search_idx`), same pattern as `notes` (M2-8b decision), for the M5-4 retrieval.
 - RLS: SELECT for the owner only. **No client INSERT, UPDATE or DELETE.** Page text is what citations point at, so only the server's extraction step writes it, through `save_document_extraction`. Deleting the document deletes its pages.
@@ -122,6 +124,15 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 ### 3.13 `search_usage` (M6) [DECIDED, M6-1 2026-11-07]
 - Mirrors `api_usage`: `user_id` (default `auth.uid()`, FK `auth.users` cascade), `usage_date date`, `searches int >= 0`, primary key `(user_id, usage_date)`.
 - RLS: SELECT own rows only. Writes only through `record_search(p_user_id)` and `refund_search(p_user_id, p_usage_date)`, both service_role only, same single-statement design as `record_api_call` (Section 5). Since 2026-11-24 there is no cap: the monthly limit (1,000 Tavily credits, env `MONTHLY_SEARCH_CAP`) is a display limit only.
+
+### 3.14 Vector memory RAG (2026-11-25, migration `20261125013000_vector_memory_rag.sql`)
+- Storage: `memories.embedding real[]` and `document_pages.embedding real[]`, NULL when unembedded, CHECK-pinned to exactly 512 numbers. No pgvector: hosted Supabase supports it, but PGlite does not ship it, so a `vector(512)` column would leave the migration untestable locally. Matching is an exact scan (no ANN index) — correct for a single-user corpus; revisit past ~10k embedded rows (see TECH_STACK.md §3.6).
+- Functions (all `SECURITY DEFINER`, service role only; the `WHERE user_id = p_user_id` clause is the isolation, as in `save_document_extraction`):
+  - `cosine_similarity(a real[], b real[])` — pure SQL, IMMUTABLE; NULL for NULL input, mismatched lengths, or a zero vector.
+  - `match_memories(p_user_id, p_query_embedding, p_match_threshold DEFAULT 0.5, p_match_count DEFAULT 5)` — owner's embedded memories at or above the threshold, best first, count clamped 1..20.
+  - `match_document_pages(p_user_id, p_query_embedding, p_match_threshold DEFAULT 0.5, p_match_count DEFAULT 5)` — owner's embedded pages across ALL ready documents, with document title for citation; best first.
+  - `save_memory_embedding(p_user_id, p_memory_id, p_embedding)` / `save_document_page_embedding(p_user_id, p_document_id, p_page_number, p_embedding)` — the only writers of the embedding columns; refuse wrong-dimension vectors and rows the user does not own.
+- Retrieval falls back to the recency/keyword paths when there is no key, when the provider fails, or when nothing clears the threshold — never a crash, never a fake vector. Backfill for pre-existing rows: `scripts/backfill-embeddings.mjs` (manual, idempotent).
 
 ## 4. Grants Block
 

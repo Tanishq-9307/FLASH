@@ -37,8 +37,10 @@ function argTypes(identityArgs: string): string {
 // authenticated); save_document_extraction (M5, service-role),
 // reserve_search / refund_search (M6, service-role) and record_api_call /
 // record_search (usage meters 2026-11-24, service-role) are also in this
-// database, so the catalog covers 17 — a function missing from this
-// map fails the test.
+// database, and the vector RAG functions (2026-11-25, service-role:
+// cosine_similarity, match_memories, match_document_pages,
+// save_memory_embedding, save_document_page_embedding) bring it to 22 —
+// a function missing from this map fails the test.
 const EXPECTED_FUNCTIONS: Record<
   string,
   {
@@ -143,6 +145,45 @@ const EXPECTED_FUNCTIONS: Record<
   },
   save_document_extraction: {
     args: "uuid, uuid, text, jsonb, text",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  // Vector memory RAG (2026-11-25): service-role only. cosine_similarity
+  // is a plain IMMUTABLE helper (not SECURITY DEFINER); the match_*
+  // and save_* functions are SECURITY DEFINER and take the user ID
+  // explicitly because RLS is bypassed inside them.
+  cosine_similarity: {
+    args: "real[], real[]",
+    secdef: false,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  match_memories: {
+    args: "uuid, real[], double precision, integer",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  match_document_pages: {
+    args: "uuid, real[], double precision, integer",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  save_memory_embedding: {
+    args: "uuid, uuid, real[]",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
+  save_document_page_embedding: {
+    args: "uuid, uuid, integer, real[]",
     secdef: true,
     anon: false,
     authenticated: false,

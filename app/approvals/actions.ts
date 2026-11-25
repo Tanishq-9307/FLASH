@@ -30,6 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { embedNewMemoryFromApproval } from "@/lib/vector-ingest";
 
 const approvalIdSchema = z.string().uuid();
 
@@ -279,6 +280,25 @@ export async function executeAction(
   const code = executed.data[0].result_code;
 
   if (code === "claimed") {
+    // A just-saved memory gets embedded best-effort (vector RAG,
+    // 2026-11-25) so it is retrievable by meaning. Only a save_memory
+    // claim carries a memory_id; a create_task claim carries a
+    // task_id instead and is skipped. The helper checks for a key
+    // before any read, so with no key this costs nothing, and a
+    // failure never changes the result — the memory is saved.
+    const payload = executed.data[0].result_payload;
+    if (
+      payload !== null &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      typeof (payload as { memory_id?: unknown }).memory_id === "string"
+    ) {
+      await embedNewMemoryFromApproval(
+        admin,
+        userId,
+        (payload as { memory_id: string }).memory_id,
+      );
+    }
     return { ok: true, status: "succeeded", resume: true };
   }
 

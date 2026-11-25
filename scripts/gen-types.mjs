@@ -61,6 +61,13 @@ const SCALARS = new Map([
   ["bigint", "number"],
   ["real", "number"],
   ["double precision", "number"],
+  // float4/float8 are the internal names for real/double precision
+  // (information_schema reports array elements by them, e.g. a real[]
+  // column's element type is _float4). Without these, a real[] column
+  // mistypes as string[] — the vector-memory embedding columns need
+  // number[].
+  ["float4", "number"],
+  ["float8", "number"],
   ["numeric", "number"],
   ["boolean", "boolean"],
   ["text", "string"],

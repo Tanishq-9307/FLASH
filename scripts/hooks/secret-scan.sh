@@ -39,7 +39,7 @@ elif grep -q -E 'sb_secret_[A-Za-z0-9_-]{16,}' "$tmp" 2>/dev/null; then
   matched="SUPABASE_SECRET"
 elif grep -q -E 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' "$tmp" 2>/dev/null; then
   matched="LEGACY_JWT"
-elif [ "$check_vars" -eq 1 ] && grep -q -E '(GOOGLE_GENERATIVE_AI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY|SUPABASE_SECRET_KEY|ELEVENLABS_API_KEY|TAVILY_API_KEY)[[:space:]]*=[[:space:]]*[^[:space:]#]+' "$tmp" 2>/dev/null; then
+elif [ "$check_vars" -eq 1 ] && grep -q -E '(GOOGLE_GENERATIVE_AI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY|SUPABASE_SECRET_KEY|ELEVENLABS_API_KEY|TAVILY_API_KEY|VOYAGE_API_KEY)[[:space:]]*=[[:space:]]*[^[:space:]#]+' "$tmp" 2>/dev/null; then
   matched="SECRET_VAR"
 fi
 

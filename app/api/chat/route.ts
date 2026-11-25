@@ -100,6 +100,7 @@ import {
 import { verifyAnswerCitations } from "@/lib/documents/citations";
 import { buildDocumentPrompt } from "@/lib/documents/document-prompt";
 import { loadMemoryBlock } from "@/lib/memory-injection";
+import { retrieveVectorContext } from "@/lib/vector-retrieval";
 import { toJson } from "@/lib/json";
 import { toModelTools } from "@/lib/tools/registry";
 import { executeToolCall } from "@/lib/tools/execute-tool-call";
@@ -356,6 +357,26 @@ export async function POST(request: Request) {
     console.error("Memory load failed", err);
   }
 
+  // Vector retrieval (2026-11-25): memories and document passages
+  // relevant by MEANING to this question, via the Voyage embeddings
+  // stored on the rows (lib/vector-retrieval.ts). It adds to the
+  // recency block above and to the document search below — rows those
+  // paths already surfaced are filtered out, so nothing is repeated.
+  // Unavailable (no key), failed, or nothing similar enough means
+  // no block: the turn continues on the keyword/recency paths alone,
+  // and a failure here never fails the reply.
+  let vectorBlock: string | null = null;
+  try {
+    const vector = await retrieveVectorContext(admin, user.id, questionText, {
+      memoryBlock,
+      documentId: documentId ?? undefined,
+      documentPageNumbers: documentPages.map((p) => p.page_number),
+    });
+    vectorBlock = vector?.block ?? null;
+  } catch (err) {
+    console.error("Vector retrieval failed unexpectedly", err);
+  }
+
   // Silent web research (2026-11-24): when the question needs
   // current or external information, run ONE background Tavily
   // search before answering and feed the findings into the model's
@@ -387,6 +408,7 @@ export async function POST(request: Request) {
 
   const instructionParts = [SYSTEM_PROMPT];
   if (memoryBlock) instructionParts.push(memoryBlock);
+  if (vectorBlock) instructionParts.push(vectorBlock);
   if (documentContext) instructionParts.push(documentContext);
   if (research) instructionParts.push(research.contextBlock);
   const instructions = instructionParts.join("\n\n");

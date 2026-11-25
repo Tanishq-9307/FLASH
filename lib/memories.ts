@@ -30,4 +30,4 @@ export const memoryFactSchema = z
  * non-sensitive-only rule stays regardless: only non-sensitive facts
  * belong in memories. Shown on the Memory screen and in Settings. */
 export const MEMORY_PRIVACY_WARNING =
-  "FLASH runs on Groq's free tier. Groq does not use your prompts to train models, and does not retain them by default — but only save non-sensitive facts here anyway. Never save passwords, financial details, health information, or anything confidential.";
+  "FLASH runs on Groq's free tier. Groq does not use your prompts to train models, and does not retain them by default — but only save non-sensitive facts here anyway. Never save passwords, financial details, health information, or anything confidential. Saved facts are also embedded by Voyage AI (voyage-4-lite) so FLASH can retrieve them by meaning; the same non-sensitive-only rule applies to what gets embedded.";

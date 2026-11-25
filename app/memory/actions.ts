@@ -15,6 +15,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { createClient } from "@/utils/supabase/server";
+import { isEmbeddingsAvailable } from "@/lib/ai/embeddings";
+import { embedMemory } from "@/lib/vector-ingest";
 import {
   memoryFactSchema,
   memoryIdSchema,
@@ -79,6 +81,22 @@ export async function updateMemory(
     .select(COLUMNS)
     .single();
   if (error || !data) return { ok: false, error: "not_found" };
+  // Re-embed best-effort (vector RAG, 2026-11-25): the edit changed
+  // the fact, so the old vector would point at the old meaning. The
+  // availability check runs first, so with no key this costs nothing
+  // and never touches the admin client; a failure is logged and the
+  // update itself still stands — the row is just unembedded until
+  // the backfill runs. The admin client is imported lazily for the
+  // same reason: this module must stay importable without Supabase
+  // credentials configured.
+  if (isEmbeddingsAvailable()) {
+    try {
+      const { createAdminClient } = await import("@/utils/supabase/admin");
+      await embedMemory(createAdminClient(), userId, data.id, data.fact);
+    } catch (err) {
+      console.error("Memory re-embed failed", err);
+    }
+  }
   return { ok: true, data };
 }
 

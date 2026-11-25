@@ -9,7 +9,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import {
-  callAs,
   createTestDb,
   createTestUser,
   deleteTestUser,
@@ -233,6 +232,19 @@ vi.mock("@/utils/supabase/admin", () => ({
         );
         return { data: r.rows, error: null };
       }
+      if (fn === "save_document_page_embedding") {
+        const embedding = args.p_embedding as number[];
+        const r = await db.query(
+          "SELECT save_document_page_embedding($1, $2, $3, $4::real[])",
+          [
+            args.p_user_id,
+            args.p_document_id,
+            args.p_page_number,
+            `{${embedding.join(",")}}`,
+          ],
+        );
+        return { data: r.rows, error: null };
+      }
       throw new Error(`unexpected rpc ${fn}`);
     },
   }),
@@ -330,7 +342,34 @@ describe("POST /api/documents/upload", () => {
     ocrState.text = "Hello OCR world 123\n";
     ocrState.fail = false;
     ocrState.calls = 0;
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
+
+  // Vector RAG (2026-11-25): the upload route embeds ready pages
+  // best-effort after extraction. The Voyage API is stubbed with
+  // deterministic test doubles (one 512-dim vector per page).
+
+  function stubVoyage(): void {
+    vi.stubEnv("VOYAGE_API_KEY", "test-voyage-key");
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({
+            object: "list",
+            data: [0, 1, 2].map((i) => {
+              const embedding = new Array<number>(512).fill(0);
+              embedding[i] = 1;
+              return { object: "embedding", embedding, index: i };
+            }),
+            model: "voyage-4-lite",
+            usage: { total_tokens: 30 },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    );
+  }
 
   it("unauthenticated gets 401 and stores nothing", async () => {
     testState.user = null;
@@ -433,6 +472,37 @@ describe("POST /api/documents/upload", () => {
     expect(pages.rows[0].content).toContain("budget is five thousand rupees");
     expect(pages.rows[1].content).toContain("Travel costs are capped");
     expect(pages.rows[2].content).toContain("deadline is the thirtieth");
+  });
+
+  it("vector RAG: ready pages are embedded when a Voyage key is set", async () => {
+    stubVoyage();
+    const res = await POST(uploadRequest(pdfForm(multiPagePdf(), "quarterly-report.pdf")));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("ready");
+    const pages = await db.query<{ page_number: number; embedding: number[] }>(
+      "SELECT page_number, embedding FROM document_pages WHERE document_id = $1 ORDER BY page_number",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(3);
+    for (const [i, row] of pages.rows.entries()) {
+      expect(row.embedding).toHaveLength(512);
+      expect(row.embedding[i]).toBe(1);
+    }
+  });
+
+  it("vector RAG: no key means pages stay unembedded and the upload still succeeds", async () => {
+    vi.stubEnv("VOYAGE_API_KEY", "");
+    const res = await POST(uploadRequest(pdfForm(multiPagePdf(), "quarterly-report.pdf")));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("ready");
+    const pages = await db.query<{ embedding: number[] | null }>(
+      "SELECT embedding FROM document_pages WHERE document_id = $1",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(3);
+    expect(pages.rows.every((row) => row.embedding === null)).toBe(true);
   });
 
   it("image-only PDF uploads and settles as no_text with no pages", async () => {
