@@ -29,13 +29,14 @@ function renderNav() {
 }
 
 describe("navigation shell", () => {
-  it("rail lists all six items with real routes", () => {
+  it("rail lists all seven items with real routes", () => {
     const { rail } = renderNav();
     const links = within(rail).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
       "/chat",
       "/tasks",
+      "/reminders",
       "/memory",
       "/activity",
       "/settings",
@@ -81,7 +82,7 @@ describe("navigation shell", () => {
     expect(within(tabBar).getByRole("button", { name: /More/ }).className).toContain("min-h-14");
   });
 
-  it("More opens Memory and Settings, Escape closes it", () => {
+  it("More opens Memory, Reminders and Settings, Escape closes it", () => {
     const { tabBar } = renderNav();
     const more = within(tabBar).getByRole("button", { name: /More/ });
     expect(within(tabBar).queryByRole("menu")).toBeNull();
@@ -89,6 +90,7 @@ describe("navigation shell", () => {
     expect(more.getAttribute("aria-expanded")).toBe("true");
     const menu = within(tabBar).getByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: /Memory/ }).getAttribute("href")).toBe("/memory");
+    expect(within(menu).getByRole("menuitem", { name: /Reminders/ }).getAttribute("href")).toBe("/reminders");
     expect(within(menu).getByRole("menuitem", { name: /Settings/ }).getAttribute("href")).toBe("/settings");
     fireEvent.keyDown(more, { key: "Escape" });
     expect(within(tabBar).queryByRole("menu")).toBeNull();

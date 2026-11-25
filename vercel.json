@@ -1,1 +1,1 @@
-{"$schema":"https://openapi.vercel.sh/vercel.json","crons":[{"path":"/api/telegram/proactive","schedule":"30 3 * * *"}]}
+{"$schema":"https://openapi.vercel.sh/vercel.json","crons":[{"path":"/api/telegram/proactive","schedule":"30 3 * * *"},{"path":"/api/telegram/reminders","schedule":"*/5 * * * *"}]}

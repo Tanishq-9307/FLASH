@@ -21,6 +21,7 @@ export interface FakeDb {
   api_usage: FakeRow[];
   search_usage: FakeRow[];
   telegram_nudges: FakeRow[];
+  reminders: FakeRow[];
   action_logs: FakeRow[];
   memories: FakeRow[];
 }
@@ -35,6 +36,7 @@ export function createFakeDb(partial: Partial<FakeDb> = {}): FakeDb {
     api_usage: [],
     search_usage: [],
     telegram_nudges: [],
+    reminders: [],
     action_logs: [],
     memories: [],
     ...partial,
@@ -48,11 +50,12 @@ export interface FakeAdminOpts {
   approval?: "created" | "open_approval_exists";
 }
 
-type Filter = { col: string; op: "eq" | "gte"; value: unknown };
+type Filter = { col: string; op: "eq" | "gte" | "lte"; value: unknown };
 
 class FakeQuery {
-  private op: "select" | "insert" | "upsert" = "select";
+  private op: "select" | "insert" | "upsert" | "update" = "select";
   private insertValues: FakeRow | FakeRow[] | null = null;
+  private updateValues: FakeRow | null = null;
   private upsertConflict: string | null = null;
   private filters: Filter[] = [];
   private orderings: { col: string; ascending: boolean }[] = [];
@@ -85,6 +88,12 @@ class FakeQuery {
     return this;
   }
 
+  update(values: FakeRow): this {
+    this.op = "update";
+    this.updateValues = values;
+    return this;
+  }
+
   eq(col: string, value: unknown): this {
     this.filters.push({ col, op: "eq", value });
     return this;
@@ -92,6 +101,11 @@ class FakeQuery {
 
   gte(col: string, value: unknown): this {
     this.filters.push({ col, op: "gte", value });
+    return this;
+  }
+
+  lte(col: string, value: unknown): this {
+    this.filters.push({ col, op: "lte", value });
     return this;
   }
 
@@ -128,7 +142,11 @@ class FakeQuery {
     const table = this.db[this.table] as FakeRow[];
     let rows = table.filter((row) =>
       this.filters.every((f) =>
-        f.op === "eq" ? row[f.col] === f.value : (row[f.col] as string) >= (f.value as string),
+        f.op === "eq"
+          ? row[f.col] === f.value
+          : f.op === "gte"
+            ? (row[f.col] as string) >= (f.value as string)
+            : (row[f.col] as string) <= (f.value as string),
       ),
     );
     for (const o of [...this.orderings].reverse()) {
@@ -145,6 +163,17 @@ class FakeQuery {
 
   private async execute(): Promise<{ data: unknown; error: unknown }> {
     const table = this.db[this.table] as FakeRow[];
+    if (this.op === "update") {
+      const matched = this.rows();
+      for (const row of matched) {
+        Object.assign(row, this.updateValues, {
+          updated_at: new Date().toISOString(),
+        });
+      }
+      if (!this.selectAfterWrite) return { data: matched, error: null };
+      if (this.singleRow) return { data: matched[0] ?? null, error: null };
+      return { data: matched, error: null };
+    }
     if (this.op === "insert" || this.op === "upsert") {
       const values = Array.isArray(this.insertValues)
         ? this.insertValues
@@ -262,6 +291,25 @@ export function createFakeAdmin(db: FakeDb, opts: FakeAdminOpts = {}): unknown {
             created_at: new Date().toISOString(),
           });
           return { data: [{ id: randomUUID() }], error: null };
+        case "claim_due_reminders": {
+          // Mirror the SQL claim: pending rows whose time has come,
+          // plus `sending` rows abandoned more than 10 minutes ago.
+          const now = new Date(String(args.p_now)).getTime();
+          const claimed: FakeRow[] = [];
+          for (const row of db.reminders) {
+            const due = new Date(String(row.remind_at)).getTime() <= now;
+            const stale =
+              row.status === "sending" &&
+              new Date(String(row.updated_at)).getTime() <
+                now - 10 * 60 * 1000;
+            if ((row.status === "pending" && due) || stale) {
+              row.status = "sending";
+              row.updated_at = new Date().toISOString();
+              claimed.push({ ...row });
+            }
+          }
+          return { data: claimed, error: null };
+        }
         default:
           throw new Error(`unexpected rpc ${fn}`);
       }

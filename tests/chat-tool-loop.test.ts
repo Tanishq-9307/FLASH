@@ -644,6 +644,81 @@ describe("POST /api/chat with the tool loop (M3-17)", () => {
     expect(messages[1].content).toContain('Proposed creating task "Buy milk"');
   });
 
+  it("a create_reminder proposal parses the time, creates exactly one pending approval, and ends the stream", async () => {
+    testState.script = [
+      {
+        toolCalls: [
+          {
+            toolCallId: "call_1",
+            toolName: "create_reminder",
+            input: { message: "Submit the form", time_text: "tomorrow at 9am" },
+          },
+        ],
+      },
+      { text: "This answer must never be reached." },
+    ];
+    const streamText = await postChat();
+    expect(testState.modelCalls).toBe(1);
+    expect(testState.script).toHaveLength(1);
+    const approvals = await pendingApprovals();
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0].tool_name).toBe("create_reminder");
+    expect(approvals[0].status).toBe("pending");
+    // The time was parsed server-side before proposing: the stored
+    // snapshot carries a concrete instant, not the owner's words.
+    const params = approvals[0].parameters as {
+      message: string;
+      remind_at: string;
+    };
+    expect(params.message).toBe("Submit the form");
+    expect(Number.isNaN(Date.parse(params.remind_at))).toBe(false);
+    expect(new Date(params.remind_at).getTime()).toBeGreaterThan(Date.now());
+    const logs = await actionLogs();
+    expect(logs).toEqual([{ tool: "create_reminder", status: "pending" }]);
+    // Nothing was executed: no reminder row exists.
+    const reminders = await db.query<{ n: string }>(
+      "SELECT count(*) AS n FROM reminders WHERE user_id = $1",
+      [userId],
+    );
+    expect(Number(reminders.rows[0].n)).toBe(0);
+    expect(streamText).toContain("data-approval");
+    expect(streamText).toContain(approvals[0].id);
+    const messages = await storedMessages();
+    expect(messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(messages[1].content).toContain(
+      'Proposed setting a reminder "Submit the form"',
+    );
+  });
+
+  it("an unparseable reminder time asks the owner instead of proposing anything", async () => {
+    testState.script = [
+      {
+        toolCalls: [
+          {
+            toolCallId: "call_1",
+            toolName: "create_reminder",
+            input: { message: "Submit the form", time_text: "sometime soon" },
+          },
+        ],
+      },
+      { text: "When should I remind you?" },
+    ];
+    await postChat();
+    expect(testState.modelCalls).toBe(2);
+    // The model got the unparseable_time result and asked the owner.
+    expect(promptTextAt(1)).toContain("unparseable_time");
+    // No approval was created and nothing was logged.
+    expect(await pendingApprovals()).toHaveLength(0);
+    expect(await actionLogs()).toHaveLength(0);
+    const reminders = await db.query<{ n: string }>(
+      "SELECT count(*) AS n FROM reminders WHERE user_id = $1",
+      [userId],
+    );
+    expect(Number(reminders.rows[0].n)).toBe(0);
+    const messages = await storedMessages();
+    expect(messages[2].content).toContain("When should I remind you?");
+  });
+
   it("a second proposal is discarded while an approval is already open", async () => {
     const conversationId = await createConversation();
     const seededId = await seedOpenApproval(conversationId);

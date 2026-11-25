@@ -12,18 +12,20 @@ import {
 } from "@/lib/tools/registry";
 
 describe("tool registry (M3-15)", () => {
-  it("registers exactly get_tasks, web_search, create_task and save_memory with the right kinds and static risks", () => {
+  it("registers exactly get_tasks, web_search, create_task, save_memory and create_reminder with the right kinds and static risks", () => {
     expect(TOOL_NAMES).toEqual([
       "get_tasks",
       "web_search",
       "create_task",
       "save_memory",
+      "create_reminder",
     ]);
     expect(TOOLS.map((t) => [t.name, t.kind, t.risk])).toEqual([
       ["get_tasks", "read-only", "low"],
       ["web_search", "read-only", "low"],
       ["create_task", "state-changing", "medium"],
       ["save_memory", "state-changing", "high"],
+      ["create_reminder", "state-changing", "medium"],
     ]);
     // Every definition carries the full PRD §5.5 metadata.
     for (const def of TOOLS) {
@@ -162,6 +164,45 @@ describe("tool registry (M3-15)", () => {
     ).toBe(true);
   });
 
+  it("create_reminder accepts a message and a time in the owner's words", () => {
+    const result = validateToolCall("create_reminder", {
+      message: "  Submit the form  ",
+      time_text: "tomorrow at 9am",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.tool.name).toBe("create_reminder");
+      expect(result.args).toEqual({
+        message: "Submit the form",
+        time_text: "tomorrow at 9am",
+      });
+    }
+  });
+
+  it("create_reminder rejects a missing, empty or over-long message or time", () => {
+    for (const args of [
+      {},
+      { message: "Hi" },
+      { time_text: "tomorrow at 9am" },
+      { message: "", time_text: "tomorrow at 9am" },
+      { message: "   ", time_text: "tomorrow at 9am" },
+      { message: "x".repeat(501), time_text: "tomorrow at 9am" },
+      { message: "Hi", time_text: "" },
+      { message: "Hi", time_text: "x".repeat(201) },
+    ]) {
+      const result = validateToolCall("create_reminder", args);
+      expect(result.ok, JSON.stringify(args)).toBe(false);
+      if (!result.ok) expect(result.error).toBe("invalid_arguments");
+    }
+    // Exactly 500 characters is allowed (the table CHECK limit).
+    expect(
+      validateToolCall("create_reminder", {
+        message: "x".repeat(500),
+        time_text: "in 2 hours",
+      }).ok,
+    ).toBe(true);
+  });
+
   it("rejects unknown tool names before any schema runs", () => {
     expect(getTool("delete_task")).toBeUndefined();
     expect(getTool("")).toBeUndefined();
@@ -193,6 +234,7 @@ describe("tool registry (M3-15)", () => {
   it("exposes every tool to the model without an automatic execute function", () => {
     const modelTools = toModelTools();
     expect(Object.keys(modelTools).sort()).toEqual([
+      "create_reminder",
       "create_task",
       "get_tasks",
       "save_memory",

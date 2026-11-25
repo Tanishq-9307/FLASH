@@ -16,7 +16,11 @@
 // The check itself lives in lib/telegram/run-proactive.ts: it loads
 // real tasks + usage, evaluates nudges, dedupes against
 // telegram_nudges, sends at most 3, and logs every sent nudge in the
-// activity log.
+// activity log. Due reminders ride on this run too
+// (lib/telegram/run-reminders.ts): the daily cron is the backstop
+// that delivers them even when the frequent reminders cron cannot
+// run, and the atomic claim means a reminder sent here is never
+// sent again by the reminders route.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import {
@@ -26,6 +30,7 @@ import {
   verifyWebhookSecret,
 } from "@/lib/telegram/config";
 import { runProactiveCheck } from "@/lib/telegram/run-proactive";
+import { runRemindersCheck } from "@/lib/telegram/run-reminders";
 
 async function handle(request: Request): Promise<NextResponse> {
   const expected = telegramCronSecret();
@@ -57,11 +62,28 @@ async function handle(request: Request): Promise<NextResponse> {
     token: telegramBotToken(),
     ownerTelegramId: telegramOwnerId(),
   });
+  // Due reminders ride on this run too: the daily cron is the
+  // backstop that delivers them even if the frequent reminders cron
+  // cannot run on this plan. The claim is atomic, so a reminder
+  // sent here is never sent again by the reminders route. Reminders
+  // ignore quiet hours (the owner asked for that exact time); the
+  // proactive nudges above still respect them.
+  const reminders = await runRemindersCheck({
+    admin,
+    token: telegramBotToken(),
+    ownerTelegramId: telegramOwnerId(),
+  });
   console.error(`[telegram-proactive] ${result.status}: ${result.detail}`);
+  console.error(`[telegram-proactive] reminders ${reminders.status}: ${reminders.detail}`);
   return NextResponse.json({
     status: result.status,
     sent: result.sent,
     detail: result.detail,
+    reminders: {
+      status: reminders.status,
+      sent: reminders.sent,
+      detail: reminders.detail,
+    },
   });
 }
 

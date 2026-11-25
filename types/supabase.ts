@@ -369,6 +369,43 @@ export type Database = {
         Relationships: [
         ]
       }
+      reminders: {
+        Row: {
+          id: string
+          user_id: string
+          message: string
+          remind_at: string
+          status: string
+          source: string
+          sent_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          message: string
+          remind_at: string
+          status?: string
+          source?: string
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          message?: string
+          remind_at?: string
+          status?: string
+          source?: string
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
       search_usage: {
         Row: {
           user_id: string
@@ -572,6 +609,12 @@ export type Database = {
           p_approval_id: string | null
         }
         Returns: { approval_id: string; approval_status: string }[]
+      }
+      claim_due_reminders: {
+        Args: {
+          p_now: string | null
+        }
+        Returns: { id: string; user_id: string; message: string; remind_at: string; status: string; source: string; sent_at: string; created_at: string; updated_at: string }[]
       }
       cosine_similarity: {
         Args: {

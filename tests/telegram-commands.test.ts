@@ -55,12 +55,22 @@ describe("parseTelegramCommand", () => {
     });
     expect(isTelegramCommand("/dance")).toBe(false);
     expect(isTelegramCommand("/tasks")).toBe(true);
+    expect(isTelegramCommand("/remind")).toBe(true);
+    expect(isTelegramCommand("/reminders")).toBe(true);
   });
 });
 
 describe("TELEGRAM_HELP_TEXT", () => {
   it("lists every command", () => {
-    for (const command of ["/tasks", "/usage", "/stop", "/resume", "/help"]) {
+    for (const command of [
+      "/tasks",
+      "/usage",
+      "/stop",
+      "/resume",
+      "/remind",
+      "/reminders",
+      "/help",
+    ]) {
       expect(TELEGRAM_HELP_TEXT).toContain(command);
     }
   });

@@ -18,8 +18,11 @@
 //
 // Handling: /start and /help answer with the command list; /tasks and
 // /usage read real state; /stop and /resume flip the proactive switch
-// in settings; any other text goes through the same chat pipeline as
-// the web chat (lib/telegram/run-chat.ts). Non-text messages get a
+// in settings; /remind creates a reminder at once from a natural
+// time ("tomorrow 9am") and /reminders lists the pending ones — an
+// unparseable time is never guessed, the reply asks for
+// clarification; any other text goes through the same chat pipeline
+// as the web chat (lib/telegram/run-chat.ts). Non-text messages get a
 // polite text-only reply. The route always answers 200 after the
 // checks pass, so Telegram does not retry a delivered update.
 //
@@ -51,6 +54,12 @@ import {
   parseTelegramCommand,
   TELEGRAM_HELP_TEXT,
 } from "@/lib/telegram/commands";
+import {
+  clarificationFor,
+  formatReminderTime,
+  parseReminderRequest,
+} from "@/lib/reminders/parse-time";
+import { formatReminderList } from "@/lib/reminders/reminders";
 import { resolveTelegramOwnerId } from "@/lib/telegram/owner";
 import { runTelegramChat } from "@/lib/telegram/run-chat";
 
@@ -205,6 +214,55 @@ export async function POST(request: Request) {
               ? "Proactive nudges are back on — I'll nudge you when something is due."
               : "Proactive nudges are off. Send /resume to turn them back on.",
           );
+        }
+        return NextResponse.json({ ok: true });
+      }
+      case "/remind": {
+        // Direct command: an explicit instruction, so the reminder
+        // is created at once — no approval round trip, exactly like
+        // /stop flips the switch directly. An unparseable time is
+        // never guessed: the reply asks for clarification.
+        const request = parseReminderRequest(parsed.args, new Date());
+        if (!request.ok) {
+          await reply(
+            request.reason === "no_time"
+              ? `I couldn't tell when you mean. ${clarificationFor("no_time")}`
+              : clarificationFor("no_message"),
+          );
+          return NextResponse.json({ ok: true });
+        }
+        const { error } = await admin.from("reminders").insert({
+          user_id: userId,
+          message: request.message,
+          remind_at: request.at.toISOString(),
+          status: "pending",
+          source: "telegram",
+        });
+        if (error) {
+          await reply(
+            "I couldn't save that reminder right now. Try again in a bit.",
+          );
+        } else {
+          await reply(
+            `Reminder set: "${request.message}" — ${formatReminderTime(request.at)}. I'll message you here at that time.`,
+          );
+        }
+        return NextResponse.json({ ok: true });
+      }
+      case "/reminders": {
+        const { data: reminders, error } = await admin
+          .from("reminders")
+          .select(
+            "id, user_id, message, remind_at, status, source, sent_at, created_at, updated_at",
+          )
+          .eq("user_id", userId)
+          .order("remind_at", { ascending: true });
+        if (error || !reminders) {
+          await reply(
+            "I couldn't load your reminders right now. Try again in a bit.",
+          );
+        } else {
+          await reply(formatReminderList(reminders));
         }
         return NextResponse.json({ ok: true });
       }

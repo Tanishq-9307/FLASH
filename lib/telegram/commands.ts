@@ -23,6 +23,8 @@ export const TELEGRAM_COMMANDS = [
   "/usage",
   "/stop",
   "/resume",
+  "/remind",
+  "/reminders",
 ] as const;
 export type TelegramCommand = (typeof TELEGRAM_COMMANDS)[number];
 
@@ -34,7 +36,11 @@ export const TELEGRAM_HELP_TEXT = [
   "/usage — today's model usage and this month's search usage",
   "/stop — turn proactive nudges off",
   "/resume — turn proactive nudges back on",
+  "/remind <time> <what> — set a reminder, e.g. /remind tomorrow 9am submit the form",
+  "/reminders — your pending reminders",
   "/help — this list",
+  "",
+  "You can also just write it: \"remind me in 2 hours to call the lab\". If I can't tell when you mean, I'll ask instead of guessing — and a reminder always fires at the time you set, even at night.",
   "",
   "Anything else is a message for me. If I propose a task or a memory, approve it in the FLASH web app — I can't approve actions from Telegram.",
 ].join("\n");

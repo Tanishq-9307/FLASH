@@ -184,6 +184,60 @@ describe("POST /api/telegram/webhook", () => {
     expect(state.db!.settings[0].telegram_proactive_enabled).toBe(true);
   });
 
+  it("answers /remind by creating the reminder at once", async () => {
+    const res = await POST(
+      webhookRequest(messageUpdate("/remind tomorrow 9am submit the form")),
+    );
+    expect(res.status).toBe(200);
+    expect(state.sendCalls[0].text).toContain('Reminder set: "submit the form"');
+    expect(state.sendCalls[0].text).toContain("9:00 am");
+    expect(state.chatCalls).toHaveLength(0);
+    expect(state.db!.reminders).toHaveLength(1);
+    expect(state.db!.reminders[0].message).toBe("submit the form");
+    expect(state.db!.reminders[0].source).toBe("telegram");
+    expect(state.db!.reminders[0].status).toBe("pending");
+  });
+
+  it("answers /remind with a clarification instead of guessing the time", async () => {
+    const res = await POST(
+      webhookRequest(messageUpdate("/remind submit the form")),
+    );
+    expect(res.status).toBe(200);
+    expect(state.sendCalls[0].text).toContain("When should I remind you?");
+    expect(state.chatCalls).toHaveLength(0);
+    expect(state.db!.reminders).toHaveLength(0);
+  });
+
+  it("answers /remind with a clarification when the message is missing", async () => {
+    const res = await POST(
+      webhookRequest(messageUpdate("/remind tomorrow at 9am")),
+    );
+    expect(res.status).toBe(200);
+    expect(state.sendCalls[0].text).toContain("What should I remind you about?");
+    expect(state.db!.reminders).toHaveLength(0);
+  });
+
+  it("answers /reminders from the real reminder list", async () => {
+    state.db!.reminders = [
+      {
+        id: "r1",
+        user_id: FAKE_OWNER_ID,
+        message: "Submit the form",
+        remind_at: "2026-11-26T03:30:00.000Z",
+        status: "pending",
+        source: "telegram",
+        sent_at: null,
+        created_at: "2026-11-25T03:00:00.000Z",
+        updated_at: "2026-11-25T03:00:00.000Z",
+      },
+    ];
+    const res = await POST(webhookRequest(messageUpdate("/reminders")));
+    expect(res.status).toBe(200);
+    expect(state.sendCalls[0].text).toContain("Submit the form");
+    expect(state.sendCalls[0].text).toContain("26 Nov 2026, 9:00 am");
+    expect(state.chatCalls).toHaveLength(0);
+  });
+
   it("rejects an unknown command without calling the chat pipeline", async () => {
     const res = await POST(webhookRequest(messageUpdate("/dance")));
     expect(res.status).toBe(200);

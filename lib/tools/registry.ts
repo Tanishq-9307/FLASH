@@ -2,8 +2,8 @@
 //
 // Plain language: the model can only call the tools listed here, and
 // only with arguments that pass the Zod schema for that tool. There
-// are four tools: get_tasks and web_search (read-only) and
-// create_task / save_memory (state-changing). The registry is the
+// are five tools: get_tasks and web_search (read-only) and
+// create_task / save_memory / create_reminder (state-changing). The registry is the
 // single place that says what each tool is, what it accepts, how
 // risky it is, and how it runs —
 // the chat route and the tool loop (M3-17/18) read it, they never
@@ -42,7 +42,12 @@ import { z } from "zod";
 export type ToolKind = "read-only" | "state-changing";
 export type ToolRisk = "low" | "medium" | "high";
 
-export type ToolName = "get_tasks" | "web_search" | "create_task" | "save_memory";
+export type ToolName =
+  | "get_tasks"
+  | "web_search"
+  | "create_task"
+  | "save_memory"
+  | "create_reminder";
 
 export interface ToolDefinition {
   /** The name the model calls. */
@@ -125,6 +130,29 @@ const saveMemorySchema = z.object({
     .describe("The fact to remember about the owner."),
 });
 
+// create_reminder: the message is required and non-empty after
+// trimming, at most 500 characters (the reminders table CHECK), and
+// the time is given in the owner's own words ("tomorrow at 9am",
+// "in 2 hours") — the server parses it before proposing, and an
+// unparseable time is an error result, never a guessed time. The
+// approval stores the parsed instant as remind_at.
+const createReminderSchema = z.object({
+  message: z
+    .string()
+    .trim()
+    .min(1, "message must not be empty")
+    .max(500, "message must be at most 500 characters")
+    .describe("What to remind the owner about."),
+  time_text: z
+    .string()
+    .trim()
+    .min(1, "time_text must not be empty")
+    .max(200, "time_text must be at most 200 characters")
+    .describe(
+      "When to remind, in the owner's own words, e.g. \"tomorrow at 9am\" or \"in 2 hours\".",
+    ),
+});
+
 export const TOOLS: readonly ToolDefinition[] = [
   {
     name: "get_tasks",
@@ -191,6 +219,24 @@ export const TOOLS: readonly ToolDefinition[] = [
       "A JSON object { error: 'invalid_arguments', details } when the arguments do not match the schema; execution errors are reported honestly after approval.",
     executionPath:
       "Approval flow (M3-18 then M3-19): create_pending_approval, then execute_approved_action after the owner approves. Never executed by the model directly.",
+    permission: "Owner only, explicit approval required.",
+  },
+  {
+    name: "create_reminder",
+    description:
+      "Propose setting a reminder with a message and a time in the owner's own words (e.g. \"tomorrow at 9am\", \"in 2 hours\"). This does not set anything: it creates an approval the owner must confirm first, and only then is the reminder set. The reminder fires over Telegram at the exact time, even at night. If the time cannot be understood, the call fails with unparseable_time — never guess a time; ask the owner instead.",
+    inputSchema: createReminderSchema,
+    kind: "state-changing",
+    // Medium, like create_task: one row the owner can cancel or
+    // delete, and the time is parsed server-side before proposing.
+    risk: "medium",
+    displayLabel: "Set reminder",
+    resultFormat:
+      "After approval and execution, a JSON object { reminder_id, message, remind_at }.",
+    errorFormat:
+      "A JSON object { error: 'invalid_arguments', details } when the arguments do not match the schema; { error: 'unparseable_time' } when the time cannot be understood — ask the owner for a clearer time; execution errors are reported honestly after approval.",
+    executionPath:
+      "Approval flow (M3-18 then M3-19): the time is parsed server-side first, then create_pending_approval stores { message, remind_at }, then execute_approved_action after the owner approves. Never executed by the model directly.",
     permission: "Owner only, explicit approval required.",
   },
 ];

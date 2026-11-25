@@ -39,8 +39,9 @@ function argTypes(identityArgs: string): string {
 // record_search (usage meters 2026-11-24, service-role) are also in this
 // database, and the vector RAG functions (2026-11-25, service-role:
 // cosine_similarity, match_memories, match_document_pages,
-// save_memory_embedding, save_document_page_embedding) bring it to 22 —
-// a function missing from this map fails the test.
+// save_memory_embedding, save_document_page_embedding) bring it to 22,
+// and claim_due_reminders (smart reminders, 2026-11-25, service-role)
+// brings it to 23 — a function missing from this map fails the test.
 const EXPECTED_FUNCTIONS: Record<
   string,
   {
@@ -189,6 +190,13 @@ const EXPECTED_FUNCTIONS: Record<
     authenticated: false,
     service_role: true,
   },
+  claim_due_reminders: {
+    args: "timestamp with time zone",
+    secdef: true,
+    anon: false,
+    authenticated: false,
+    service_role: true,
+  },
   // Authenticated only.
   approve_action: {
     args: "uuid",
@@ -235,6 +243,7 @@ const EXPECTED_TABLES = [
   "memories",
   "messages",
   "notes",
+  "reminders",
   "search_usage",
   "settings",
   "tasks",
@@ -343,7 +352,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it("RLS is enabled on every table, and the table set is exactly the expected 13", async () => {
+  it("RLS is enabled on every table, and the table set is exactly the expected 14", async () => {
     const rows = await db.query<{ name: string; rls: boolean }>(
       `SELECT c.relname AS name, c.relrowsecurity AS rls
          FROM pg_class c
@@ -583,6 +592,10 @@ describe("database privilege matrix and retention (M3-14)", () => {
       "INSERT INTO telegram_nudges (user_id, nudge_key, kind, message) VALUES ($1, 'overdue:t1:2026-11-20', 'overdue_task', 'Overdue: x')",
       [doomed],
     );
+    await db.query(
+      "INSERT INTO reminders (user_id, message, remind_at) VALUES ($1, 'doomed reminder', now() + interval '1 hour')",
+      [doomed],
+    );
 
     // A second user's data must survive the delete.
     await setTestUser(db, userA);
@@ -600,6 +613,7 @@ describe("database privilege matrix and retention (M3-14)", () => {
       "tasks",
       "notes",
       "memories",
+      "reminders",
       "tool_approvals",
       "action_logs",
       "settings",

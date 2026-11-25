@@ -63,11 +63,40 @@ webhook endpoint is the only shape that fits.)
 
 - Any text message goes through the same chat pipeline as the web chat:
   same model (Groq, OpenRouter hot-swap), same memories, same tools.
-- Commands: `/start` `/help` `/tasks` `/usage` `/stop` `/resume`.
-- If the model proposes creating a task or saving a memory, it becomes
-  a pending approval exactly as on the web — approve or reject it in
-  the FLASH web app. Telegram cannot approve actions.
+- Commands: `/start` `/help` `/tasks` `/usage` `/stop` `/resume`
+  `/remind` `/reminders`.
+- If the model proposes creating a task, saving a memory, or setting
+  a reminder, it becomes a pending approval exactly as on the web —
+  approve or reject it in the FLASH web app. Telegram cannot approve
+  actions.
 - Voice and attachments are out of scope: send text.
+
+## Smart reminders
+
+- Set one three ways: in chat ("remind me tomorrow at 9am to submit
+  the form"), over Telegram (`/remind tomorrow 9am submit the form`),
+  or on the Reminders screen in the web app (message + date/time).
+  Manage them on the Reminders screen: cancel (keeps the row) or
+  delete. `/reminders` lists the pending ones.
+- Times are natural language — "in 2 hours", "tomorrow at 9am",
+  "25 Dec at 9am", "next Monday at 9am", "2026-12-25 09:00" — all
+  read in Asia/Kolkata. A time the server cannot understand is never
+  guessed: the reply asks for clarification.
+- Delivery: Vercel Cron every 5 minutes (`/api/telegram/reminders`),
+  plus the daily 09:00 IST proactive run as a backstop. The claim is
+  one atomic database UPDATE (`claim_due_reminders`), so a reminder
+  is never sent twice even if both runs overlap. A failed send puts
+  the reminder back to pending for the next run instead of dropping
+  it. Every delivery is logged in the activity timeline
+  (`action_logs`, tool `telegram_reminder`).
+- **Quiet hours do NOT apply to reminders.** The 23:00–07:00 IST
+  quiet hours exist because an unsolicited nudge must never wake the
+  owner — but a reminder is a time the owner asked for, so it fires
+  at that exact time, even at night. Quiet hours still apply to
+  proactive nudges (below).
+- Manual trigger: `POST /api/telegram/reminders` with header
+  `Authorization: Bearer <CRON_SECRET or TELEGRAM_PROACTIVE_SECRET>`.
+  Without a secret configured, the route refuses every call.
 
 ## Proactive nudges
 

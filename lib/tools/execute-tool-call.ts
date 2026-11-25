@@ -37,6 +37,10 @@ import type { Database } from "@/types/supabase";
 import { approvalTtlSeconds } from "@/lib/config";
 import { toJson } from "@/lib/json";
 import {
+  clarificationFor,
+  parseReminderTime,
+} from "@/lib/reminders/parse-time";
+import {
   searchTavily,
   TavilyError,
   type SearchProvider,
@@ -105,6 +109,14 @@ function proposalSummary(toolName: string, args: Record<string, unknown>): strin
         : "";
     return `Proposed creating task "${title}"${due}. Waiting for your approval.`;
   }
+  if (toolName === "create_reminder") {
+    const message = String(args.message ?? "");
+    const at =
+      typeof args.remind_at === "string" && args.remind_at !== ""
+        ? ` at ${args.remind_at}`
+        : "";
+    return `Proposed setting a reminder "${message}"${at}. Waiting for your approval.`;
+  }
   const fact = String(args.fact ?? "");
   const shown = fact.length > 200 ? `${fact.slice(0, 200)}…` : fact;
   return `Proposed saving a memory: "${shown}". Waiting for your approval.`;
@@ -132,6 +144,36 @@ export async function executeToolCall(
   }
 
   if (validated.tool.kind === "state-changing") {
+    // create_reminder: the model gives the time in the owner's own
+    // words ("tomorrow at 9am"), so it is parsed here, server-side,
+    // before anything is proposed. An unparseable time never reaches
+    // the approval: the model gets an error result and asks the owner
+    // for clarification instead of the server guessing a time. A
+    // parsed time is stored as a concrete remind_at, so the approval
+    // dialog and the database both see the exact instant.
+    let approvalArgs: Record<string, unknown> = validated.args as Record<
+      string,
+      unknown
+    >;
+    if (validated.tool.name === "create_reminder") {
+      const args = validated.args as { message: string; time_text: string };
+      const parsed = parseReminderTime(args.time_text, new Date());
+      if (!parsed.ok) {
+        return {
+          outcome: "tool_result",
+          result: errorResult(call, {
+            error: "unparseable_time",
+            message: clarificationFor("no_time"),
+          }),
+          summary: `Could not tell when "${args.time_text}" means, so no reminder was proposed.`,
+        };
+      }
+      approvalArgs = {
+        message: args.message,
+        remind_at: parsed.at.toISOString(),
+      };
+    }
+
     // M3-18: record the proposal — never execute. The database
     // stores the exact validated parameters and their hash, and
     // refuses the proposal if an approval is already open.
@@ -143,7 +185,7 @@ export async function executeToolCall(
           p_conversation_id: conversationId,
           p_tool_call_id: call.toolCallId,
           p_tool: call.toolName,
-          p_params: toJson(validated.args),
+          p_params: toJson(approvalArgs),
           p_ttl_seconds: approvalTtlSeconds(),
         },
       );
@@ -160,10 +202,7 @@ export async function executeToolCall(
         return {
           outcome: "approval_created",
           approvalId: row.approval_id,
-          summary: proposalSummary(
-            call.toolName,
-            validated.args as Record<string, unknown>,
-          ),
+          summary: proposalSummary(call.toolName, approvalArgs),
         };
       }
       if (row.result_code === "open_approval_exists") {

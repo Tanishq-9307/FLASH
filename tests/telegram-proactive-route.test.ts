@@ -8,6 +8,7 @@ import { createFakeAdmin, createFakeDb } from "./telegram-helpers";
 
 const state = vi.hoisted(() => ({
   checkCalls: 0,
+  reminderCalls: 0,
 }));
 
 vi.mock("@/utils/supabase/admin", () => ({
@@ -19,6 +20,13 @@ vi.mock("@/lib/telegram/run-proactive", () => ({
   runProactiveCheck: vi.fn(async () => {
     state.checkCalls += 1;
     return { status: "sent", sent: ["overdue:t1:2026-11-20"], detail: "Sent 1 nudge(s)." };
+  }),
+}));
+
+vi.mock("@/lib/telegram/run-reminders", () => ({
+  runRemindersCheck: vi.fn(async () => {
+    state.reminderCalls += 1;
+    return { status: "none", sent: [], detail: "No reminders due." };
   }),
 }));
 
@@ -37,6 +45,7 @@ function proactiveRequest(
 beforeEach(() => {
   process.env.CRON_SECRET = "cron-s3cr3t";
   state.checkCalls = 0;
+  state.reminderCalls = 0;
 });
 
 afterEach(() => {
@@ -69,10 +78,13 @@ describe("/api/telegram/proactive", () => {
     const res = await GET(proactiveRequest("GET", "Bearer cron-s3cr3t"));
     expect(res.status).toBe(200);
     expect(state.checkCalls).toBe(1);
+    // Due reminders ride on the same run as the backstop delivery.
+    expect(state.reminderCalls).toBe(1);
     expect(await res.json()).toEqual({
       status: "sent",
       sent: ["overdue:t1:2026-11-20"],
       detail: "Sent 1 nudge(s).",
+      reminders: { status: "none", sent: [], detail: "No reminders due." },
     });
   });
 

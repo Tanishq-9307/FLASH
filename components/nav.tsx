@@ -75,6 +75,15 @@ function SettingsIcon({ className }: IconProps) {
   );
 }
 
+function RemindersIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className} aria-hidden="true">
+      <path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" strokeLinejoin="round" />
+      <path d="M10 20a2 2 0 0 0 4 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function MoreIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -96,18 +105,19 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Overview", shortLabel: "Overview", Icon: OverviewIcon },
   { href: "/chat", label: "Chat", shortLabel: "Chat", Icon: ChatIcon },
   { href: "/tasks", label: "Tasks & Notes", shortLabel: "Tasks", Icon: TasksIcon },
+  { href: "/reminders", label: "Reminders", shortLabel: "Reminders", Icon: RemindersIcon },
   { href: "/memory", label: "Memory", shortLabel: "Memory", Icon: MemoryIcon },
   { href: "/activity", label: "Activity", shortLabel: "Activity", Icon: ActivityIcon },
   { href: "/settings", label: "Settings", shortLabel: "Settings", Icon: SettingsIcon },
 ];
 
-// The tab bar shows four items plus More; Memory and Settings live in the
-// More menu (DESIGN.md §5.2).
+// The tab bar shows four items plus More; Memory, Reminders and
+// Settings live in the More menu (DESIGN.md §5.2).
 const TAB_BAR_ITEMS = NAV_ITEMS.filter((item) =>
   ["/", "/chat", "/tasks", "/activity"].includes(item.href),
 );
 const MORE_ITEMS = NAV_ITEMS.filter((item) =>
-  ["/memory", "/settings"].includes(item.href),
+  ["/memory", "/reminders", "/settings"].includes(item.href),
 );
 
 function isActive(pathname: string, href: string): boolean {
