@@ -116,7 +116,13 @@ describe("documents schema (M5-1)", () => {
         id: "documents",
         public: false,
         file_size_limit: 4194304,
-        allowed_mime_types: ["application/pdf"],
+        // PDF plus the image types the 2026-11-25 OCR migration added.
+        allowed_mime_types: [
+          "application/pdf",
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+        ],
       },
     ]);
 
@@ -182,6 +188,29 @@ describe("documents schema (M5-1)", () => {
         `INSERT INTO documents (id, title, storage_path, size_bytes)
          VALUES ($1, 'x', 'someone-else/file.pdf', 10)`,
         [randomUUID()],
+      ),
+    ).rejects.toThrow(/check constraint/);
+    // Image extensions are accepted (2026-11-25 OCR migration), but any
+    // other extension is still refused by the storage_path CHECK.
+    for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+      const imgId = randomUUID();
+      const ok = await callAs(
+        db,
+        "authenticated",
+        `INSERT INTO documents (id, title, storage_path, size_bytes)
+         VALUES ($1, 'x', $2, 10) RETURNING id`,
+        [imgId, `${userA}/${imgId}.${ext}`],
+      );
+      expect(ok.rows).toHaveLength(1);
+    }
+    const gifId = randomUUID();
+    await expect(
+      callAs(
+        db,
+        "authenticated",
+        `INSERT INTO documents (id, title, storage_path, size_bytes)
+         VALUES ($1, 'x', $2, 10)`,
+        [gifId, `${userA}/${gifId}.gif`],
       ),
     ).rejects.toThrow(/check constraint/);
     // Another user's id.

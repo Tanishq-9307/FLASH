@@ -26,7 +26,7 @@ Raw SQL migrations via the Supabase CLI, applied in order, with generated TypeSc
 
 - **M1:** `set_updated_at` helper, `settings`, `api_usage`, `reserve_api_call`, `refund_api_call`, grants block and default-privilege rules.
 - **M2:** `conversations`, `messages`, `tasks`, `notes`, `append_message`, `updated_at` triggers.
-- **M5:** `documents`, `document_pages`, the private `documents` Storage bucket and its policies, `save_document_extraction` (Sections 3.10 to 3.12).
+- **M5:** `documents`, `document_pages`, the private `documents` Storage bucket and its policies, `save_document_extraction` (Sections 3.10 to 3.12). The 2026-11-25 OCR migration widens the `storage_path` CHECK and the bucket's MIME types to PNG/JPEG/WebP; images store OCR text as a single page (page 1) in the same tables.
 - **M6:** `search_usage`, `reserve_search`, `refund_search` (Section 3.13).
 - **M3:** `memories`, `tool_approvals`, `action_logs`, the conversation-delete guard (it needs `tool_approvals`, so it cannot come earlier), the immutability triggers, and the nine approval and audit functions.
 
@@ -99,7 +99,7 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 ---
 
 ### 3.10 `documents` (M5) [DECIDED, M5-0 2026-11-07, owner approved]
-- Columns: `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, `user_id` (default `auth.uid()`, FK to `auth.users`, cascade), `title text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 255)`, `storage_path text NOT NULL UNIQUE CHECK (storage_path = user_id::text || '/' || id::text || '.pdf')`, `size_bytes integer NOT NULL CHECK (size_bytes BETWEEN 1 AND 4194304)`, `status text NOT NULL DEFAULT 'processing' CHECK (status IN ('processing','ready','no_text','failed'))`, `page_count integer CHECK (page_count BETWEEN 1 AND 300)`, `error_code text CHECK (char_length(error_code) <= 64)`, `created_at`, `updated_at`.
+- Columns: `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, `user_id` (default `auth.uid()`, FK to `auth.users`, cascade), `title text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 255)`, `storage_path text NOT NULL UNIQUE CHECK (storage_path = user_id::text || '/' || id::text || '.pdf' OR ... '.png' OR ... '.jpg' OR ... '.jpeg' OR ... '.webp')` (PDF only until the 2026-11-25 OCR migration widened it to images), `size_bytes integer NOT NULL CHECK (size_bytes BETWEEN 1 AND 4194304)`, `status text NOT NULL DEFAULT 'processing' CHECK (status IN ('processing','ready','no_text','failed'))`, `page_count integer CHECK (page_count BETWEEN 1 AND 300)`, `error_code text CHECK (char_length(error_code) <= 64)`, `created_at`, `updated_at`.
 - Constraints: `UNIQUE (id, user_id)` (parent of `document_pages`). Trigger: `set_updated_at`.
 - Why 4 MB: Vercel Functions refuse request bodies over 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`, vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions, read 2026-11-07), and the upload passes through our route so the server can check the bytes first.
 - The storage path is fixed by a CHECK, so a row can only point at its own owner's file.
@@ -114,8 +114,8 @@ All policies use `(SELECT auth.uid())` for performance and are granted `TO authe
 - Long pages: text beyond 20,000 characters on one page is cut and the cut is recorded in the document's `error_code` (`page_truncated`), never hidden.
 
 ### 3.12 Storage bucket `documents` (M5) [DECIDED, M5-0 2026-11-07, owner approved]
-- Private bucket (`public = false`), `file_size_limit = 4194304`, `allowed_mime_types = '{application/pdf}'`. Files are never served by public URL; there is no download feature in M5.
-- Object names are `<user_id>/<document_id>.pdf`. Policies on `storage.objects`, all `TO authenticated`, all requiring `bucket_id = 'documents' AND (storage.foldername(name))[1] = (SELECT auth.uid())::text`:
+- Private bucket (`public = false`), `file_size_limit = 4194304`, `allowed_mime_types = '{application/pdf,image/png,image/jpeg,image/webp}'` (PDF only until the 2026-11-25 OCR migration added the image types). Files are never served by public URL; there is no download feature in M5.
+- Object names are `<user_id>/<document_id>.<ext>` (`.pdf`, `.png`, `.jpg`, `.jpeg` or `.webp`). Policies on `storage.objects`, all `TO authenticated`, all requiring `bucket_id = 'documents' AND (storage.foldername(name))[1] = (SELECT auth.uid())::text`:
   - SELECT (needed to read the file for extraction and to remove it), INSERT, DELETE. **No UPDATE**, so an uploaded file cannot be swapped after its text was extracted.
 - `anon` has no policy on this bucket.
 

@@ -22,6 +22,7 @@
 | Hosting | Vercel Hobby with Fluid compute | [DECIDED] |
 | Speech (M4) | Browser-native speech, behind a provider interface | [PROPOSED] |
 | PDF extraction (M5) | `unpdf` 1.9.1 (MIT), page-by-page text from a serverless build of PDF.js | [DECIDED] M5-0 (owner approved 2026-11-07) |
+| OCR for image uploads | `tesseract.js` 6.0.1 + `@tesseract.js-data/eng` 1.0.0 (Apache-2.0 / MIT), English text from PNG/JPEG/WebP, server-side only, no key | [DECIDED] 2026-11-25 (owner-directed feature batch; no key, no runtime network — language data is the locally installed `4.0.0_best_int` model) |
 | Web search (M6) | Tavily free plan (1,000 credits/month), basic search, own cap 10/day | [DECIDED] M6-0 |
 | Testing | Vitest (unit, integration, route tests with the model mocked) | [PROPOSED] |
 | Source control | Git, private GitHub repository | [DECIDED] |
@@ -154,4 +155,9 @@ Facts confirmed in official documentation (read 2026-10-16):
   - `pdfjs-dist` 6.5 (Mozilla, Apache-2.0): the underlying engine; usable directly but needs worker and font setup in a serverless function. `unpdf` packages that setup.
   - `pdf-parse` 2.4.5 (Apache-2.0): last published 2025-10-29 and depends on `@napi-rs/canvas`, a native module, which adds size and native-binary risk on Vercel.
   - Memory: a 4 MB, 300-page cap keeps one extraction well inside the 2 GB Hobby function memory (Section 3.1).
+- [DECIDED] OCR engine for image uploads (owner-directed feature batch, 2026-11-25): `tesseract.js` 6.0.1 with the English data from `@tesseract.js-data/eng` 1.0.0. No API key, no account, no runtime network. Verified by a real run in this build (generated PNG/JPEG/WebP images, Node 24): "Hello OCR world 123" recognised exactly at confidence 94, blank image returns empty text, corrupt image rejects cleanly. Why this over the alternatives:
+  - `tesseract.js` (Apache-2.0): pure WASM, no native binary, works in a serverless function. In Node it loads its WASM core from the installed `tesseract.js-core` package and runs the worker in a worker_thread; only the language data defaults to a CDN fetch, and `langPath` can point at a local directory instead — so the install pins the data (`4.0.0_best_int`, 2.9 MB, the same integer model the library fetches by default) and the route never fetches at runtime. One trap, found by the real run: the library's default worker error handler re-throws on a bare nextTick and CRASHES the process for a corrupt image — `lib/documents/ocr.ts` always passes its own `errorHandler`, so the recognize promise rejects cleanly instead.
+  - Cloud OCR behind a key (Google Vision, OCR.space free tier): rejected — a key the owner must create and keep, per-image data sent to a third party, and a recurring free-tier dependency for something the device can do locally.
+  - `node-tesseract-ocr`: rejected — needs the `tesseract` binary installed, which Vercel functions do not have.
+  - Deployment notes: the packages are `serverExternalPackages` (bundling breaks the worker's computed paths and `fs` reads), and `outputFileTracingIncludes` forces the worker script, WASM core and language data into the upload route's bundle (verified in the route's `.nft.json`: both traineddata files, all core WASM files, the worker script). The worker runs with `cacheMethod: "none"` so no language file is ever written to the working directory. One worker is created per upload and terminated afterwards; English only.
 

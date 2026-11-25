@@ -1,25 +1,31 @@
-// POST /api/documents/upload (M5-2): secure PDF upload.
+// POST /api/documents/upload (M5-2, extended 2026-11-25 for OCR image
+// uploads).
 //
 // Order of operations:
 // 1. Verify the session with getUser(). Unauthenticated → 401, and the
 //    file is never read.
-// 2. Validate the file: it must be a non-empty PDF between 1 byte and 4 MB.
-//    The check is the %PDF- magic bytes, not the filename or the declared
-//    MIME type — a renamed .txt file is rejected. Oversize → 413.
-// 3. Store the file under the owner's path (<user_id>/<document_id>.pdf)
+// 2. Validate the file: it must be a non-empty PDF or supported image
+//    (PNG, JPEG, WebP) between 1 byte and 4 MB. The check is the magic
+//    bytes, not the filename or the declared MIME type — a renamed .txt
+//    file is rejected. Oversize → 413.
+// 3. Store the file under the owner's path (<user_id>/<document_id>.<ext>)
 //    in the private `documents` bucket, with the user-scoped client (the
 //    bucket's owner-folder policies enforce the path).
 // 4. Insert the document row with the user-scoped client (RLS: the row
 //    must be the owner's, still 'processing', with no page count or error).
 //    If the insert fails, the uploaded file is removed again so no orphan
 //    file survives without a row.
-// 5. Extract the text and record the outcome (M5-3): 'ready' with the
-//    pages, 'no_text' when no page carries text, 'failed' when extraction
-//    throws or times out — recorded through save_document_extraction, never
-//    by the client. If the save itself fails, the upload reports a generic
-//    500: the file and the row exist, but the upload did not finish cleanly
-//    (the row stays 'processing' and the owner can delete it from the
-//    Documents screen in M5-5).
+// 5. Extract the text and record the outcome (M5-3, OCR 2026-11-25):
+//    PDFs go through unpdf page by page; images go through tesseract.js
+//    OCR as a single page (page 1). Either way the text lands in the
+//    SAME document_pages rows via save_document_extraction, so an image
+//    is searchable and citable on the same footing as a PDF. 'ready' with
+//    the pages, 'no_text' when no text is found, 'failed' when extraction
+//    throws or times out — recorded through save_document_extraction,
+//    never by the client. If the save itself fails, the upload reports a
+//    generic 500: the file and the row exist, but the upload did not
+//    finish cleanly (the row stays 'processing' and the owner can delete
+//    it from the Documents screen in M5-5).
 // 6. Return the document with its settled status.
 //
 // Errors are generic: the caller learns the file was rejected, never why
@@ -35,10 +41,14 @@ import {
   hasNoText,
   preparePages,
 } from "@/lib/documents/extract";
+import { OcrError, extractImageText } from "@/lib/documents/ocr";
 import {
-  MAX_PDF_BYTES,
+  MAX_UPLOAD_BYTES,
+  UPLOAD_HEAD_BYTES,
+  detectFileKind,
   documentTitle,
-  hasPdfMagic,
+  fileContentType,
+  fileExtension,
 } from "@/lib/documents/upload";
 
 export const maxDuration = 60;
@@ -66,25 +76,26 @@ export async function POST(request: Request) {
   if (file.size < 1) {
     return NextResponse.json({ error: "invalid-file" }, { status: 400 });
   }
-  if (file.size > MAX_PDF_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "too-large" }, { status: 413 });
   }
-  const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-  if (!hasPdfMagic(head)) {
+  const head = new Uint8Array(await file.slice(0, UPLOAD_HEAD_BYTES).arrayBuffer());
+  const kind = detectFileKind(head);
+  if (kind === null) {
     return NextResponse.json({ error: "invalid-file" }, { status: 400 });
   }
 
   const title = documentTitle(
-    file instanceof File ? file.name : "document.pdf",
+    file instanceof File ? file.name : `document.${fileExtension(kind)}`,
     form.get("title"),
   );
   const id = randomUUID();
-  const storagePath = `${user.id}/${id}.pdf`;
+  const storagePath = `${user.id}/${id}.${fileExtension(kind)}`;
 
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(storagePath, file, {
-      contentType: "application/pdf",
+      contentType: fileContentType(kind),
       upsert: false,
     });
   if (uploadError) {
@@ -105,13 +116,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "document_create_failed" }, { status: 500 });
   }
 
-  // Extract the text and record the outcome (M5-3).
+  // Extract the text and record the outcome (M5-3, OCR 2026-11-25).
+  // PDFs extract page by page; images OCR into a single page (page 1).
+  // Both land in the same document_pages rows.
   const bytes = new Uint8Array(await file.arrayBuffer());
   let status: "ready" | "no_text" | "failed";
   let pages: Array<{ page: number; text: string }> | null = null;
   let errorCode: string | null = null;
   try {
-    const { pages: extracted } = await extractDocumentPages(bytes);
+    const extracted =
+      kind === "pdf"
+        ? (await extractDocumentPages(bytes)).pages
+        : [(await extractImageText(bytes)).text];
     if (hasNoText(extracted)) {
       status = "no_text";
     } else {
@@ -121,7 +137,18 @@ export async function POST(request: Request) {
       if (prepared.truncated) errorCode = "page_truncated";
     }
   } catch (err) {
-    if (err instanceof ExtractionError && err.kind === "extraction_timeout") {
+    if (err instanceof OcrError) {
+      status = "failed";
+      errorCode =
+        err.kind === "ocr_timeout"
+          ? "extraction_timeout"
+          : err.kind === "ocr_unavailable"
+            ? "ocr_unavailable"
+            : "extraction_failed";
+    } else if (
+      err instanceof ExtractionError &&
+      err.kind === "extraction_timeout"
+    ) {
       status = "failed";
       errorCode = "extraction_timeout";
     } else {
@@ -148,6 +175,7 @@ export async function POST(request: Request) {
     document: {
       id,
       title,
+      file_type: kind,
       size_bytes: file.size,
       status,
       page_count: status === "ready" ? pages!.length : null,

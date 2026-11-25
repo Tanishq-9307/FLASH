@@ -1,8 +1,11 @@
-// Upload route tests (M5-2): authenticated upload endpoint with size and
-// magic-byte validation, owner-path storage, and generic errors. The
-// user-scoped client is mocked, but its `documents` inserts run the real
-// queries through `authenticated` with RLS against a fresh PGlite database,
-// and the fake storage bucket records exactly what the route stored.
+// Upload route tests (M5-2, extended 2026-11-25 for OCR image uploads):
+// authenticated upload endpoint with size and magic-byte validation,
+// owner-path storage, and generic errors. The user-scoped client is
+// mocked, but its `documents` inserts run the real queries through
+// `authenticated` with RLS against a fresh PGlite database, and the fake
+// storage bucket records exactly what the route stored. Image uploads go
+// through the same pipeline as PDFs; the OCR engine is mocked (see the
+// ocr mock below) and the real worker was verified separately.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import {
@@ -185,6 +188,31 @@ vi.mock("@/utils/supabase/server", () => ({
 // The production guard is unchanged (Next.js enforces it).
 vi.mock("server-only", () => ({}));
 
+// OCR (2026-11-25): the route's image branch calls extractImageText —
+// the real tesseract.js worker is mocked out here (its behaviour was
+// verified by a real run; see PROGRESS.md). The fake is controlled by
+// ocrState: `text` is the recognised text, `fail` makes it throw an
+// OcrError. The real OcrError class is kept via importActual so the
+// route's instanceof check sees the same class.
+const ocrState = vi.hoisted(() => ({
+  text: "Hello OCR world 123\n",
+  fail: false,
+  calls: 0,
+}));
+
+vi.mock("@/lib/documents/ocr", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/documents/ocr")>();
+  return {
+    ...actual,
+    extractImageText: async () => {
+      ocrState.calls += 1;
+      if (ocrState.fail) throw new actual.OcrError("ocr_failed");
+      return { text: ocrState.text };
+    },
+  };
+});
+
 vi.mock("@/utils/supabase/admin", () => ({
   // The mocked admin client's rpc runs the real save_document_extraction
   // function against the fresh PGlite database, so the extraction outcome
@@ -233,6 +261,43 @@ function pdfForm(
   return form;
 }
 
+// Minimal image fixtures: only the magic bytes matter to the route (the
+// OCR engine is mocked above), so these are small byte arrays with a
+// correct header — no binary fixture files are committed (the repo's push
+// transport handles UTF-8 files only).
+function pngBytes(): Uint8Array {
+  return new Uint8Array([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  ]);
+}
+function jpegBytes(): Uint8Array {
+  return new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+  ]);
+}
+function webpBytes(): Uint8Array {
+  return new Uint8Array([
+    0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+  ]);
+}
+function gifBytes(): Uint8Array {
+  return new Uint8Array([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+  ]);
+}
+
+function imageForm(
+  bytes: Uint8Array,
+  fileName: string,
+  mime: string,
+  title?: string,
+): FormData {
+  const form = new FormData();
+  form.set("file", new File([bytes as BlobPart], fileName, { type: mime }));
+  if (title !== undefined) form.set("title", title);
+  return form;
+}
+
 describe("POST /api/documents/upload", () => {
   it("exports maxDuration 60 (extraction runs in the same request)", () => {
     expect(maxDuration).toBe(60);
@@ -262,6 +327,9 @@ describe("POST /api/documents/upload", () => {
     testState.files.clear();
     testState.failUpload = false;
     testState.failInsert = false;
+    ocrState.text = "Hello OCR world 123\n";
+    ocrState.fail = false;
+    ocrState.calls = 0;
   });
 
   it("unauthenticated gets 401 and stores nothing", async () => {
@@ -434,5 +502,154 @@ describe("POST /api/documents/upload", () => {
     expect(testState.files.size).toBe(0);
     const rows = await db.query("SELECT id FROM documents");
     expect(rows.rows).toHaveLength(0);
+  });
+
+  // OCR image uploads (2026-11-25): same pipeline as PDFs, one page.
+
+  it("valid PNG uploads, OCRs, and is ready with one page of text", async () => {
+    const bytes = pngBytes();
+    const res = await POST(
+      uploadRequest(imageForm(bytes, "receipt.png", "image/png")),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const doc = body.document as {
+      id: string;
+      title: string;
+      file_type: string;
+      size_bytes: number;
+      status: string;
+      page_count: number | null;
+      error_code: string | null;
+    };
+    expect(doc.title).toBe("receipt");
+    expect(doc.file_type).toBe("png");
+    expect(doc.size_bytes).toBe(bytes.length);
+    expect(doc.status).toBe("ready");
+    expect(doc.page_count).toBe(1);
+    expect(doc.error_code).toBeNull();
+    expect(ocrState.calls).toBe(1);
+
+    // Stored under <user_id>/<document_id>.png, bytes intact.
+    const storedPath = `${userId}/${doc.id}.png`;
+    const stored = testState.files.get(storedPath);
+    expect(stored).toBeDefined();
+    expect(stored!.contentType).toBe("image/png");
+    expect(stored!.bytes).toEqual(bytes);
+    expect(testState.files.size).toBe(1);
+
+    // The row matches, and the OCR text is a page-1 document_pages row —
+    // the same store a PDF's text goes into, so it is searchable and
+    // citable on the same footing.
+    const rows = await db.query<{
+      user_id: string;
+      title: string;
+      storage_path: string;
+      size_bytes: number;
+      status: string;
+      page_count: number;
+    }>(
+      "SELECT user_id, title, storage_path, size_bytes, status, page_count FROM documents WHERE id = $1",
+      [doc.id],
+    );
+    expect(rows.rows).toEqual([
+      {
+        user_id: userId,
+        title: "receipt",
+        storage_path: storedPath,
+        size_bytes: bytes.length,
+        status: "ready",
+        page_count: 1,
+      },
+    ]);
+    const pages = await db.query<{ page_number: number; content: string }>(
+      "SELECT page_number, content FROM document_pages WHERE document_id = $1 ORDER BY page_number",
+      [doc.id],
+    );
+    expect(pages.rows).toEqual([
+      { page_number: 1, content: "Hello OCR world 123\n" },
+    ]);
+  });
+
+  it("JPEG and WebP upload the same way, with their own extensions", async () => {
+    for (const [bytes, fileName, mime, kind, ext] of [
+      [jpegBytes(), "photo.jpg", "image/jpeg", "jpeg", "jpg"],
+      [webpBytes(), "diagram.webp", "image/webp", "webp", "webp"],
+    ] as const) {
+      const res = await POST(uploadRequest(imageForm(bytes, fileName, mime)));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.document.file_type).toBe(kind);
+      expect(body.document.status).toBe("ready");
+      expect(body.document.page_count).toBe(1);
+      const stored = testState.files.get(`${userId}/${body.document.id}.${ext}`);
+      expect(stored).toBeDefined();
+      expect(stored!.contentType).toBe(mime);
+    }
+    expect(ocrState.calls).toBe(2);
+  });
+
+  it("GIF renamed .png is rejected by magic bytes", async () => {
+    const res = await POST(
+      uploadRequest(imageForm(gifBytes(), "image.png", "image/png")),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid-file");
+    expect(testState.files.size).toBe(0);
+    expect(ocrState.calls).toBe(0);
+    const rows = await db.query("SELECT id FROM documents");
+    expect(rows.rows).toHaveLength(0);
+  });
+
+  it("oversize image gets 413 too-large and is not stored", async () => {
+    const big = new Uint8Array(4194305);
+    big.set(pngBytes());
+    const res = await POST(
+      uploadRequest(imageForm(big, "huge.png", "image/png")),
+    );
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("too-large");
+    expect(testState.files.size).toBe(0);
+    expect(ocrState.calls).toBe(0);
+  });
+
+  it("image with no readable text settles as no_text with no pages", async () => {
+    ocrState.text = "";
+    const res = await POST(
+      uploadRequest(imageForm(pngBytes(), "blank.png", "image/png")),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("no_text");
+    expect(body.document.page_count).toBeNull();
+    expect(body.document.error_code).toBeNull();
+    const pages = await db.query(
+      "SELECT page_number FROM document_pages WHERE document_id = $1",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(0);
+  });
+
+  it("OCR failure settles as failed, honestly, with no fake text", async () => {
+    ocrState.fail = true;
+    const res = await POST(
+      uploadRequest(imageForm(pngBytes(), "broken.png", "image/png")),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.document.status).toBe("failed");
+    expect(body.document.error_code).toBe("extraction_failed");
+    const rows = await db.query<{ status: string; error_code: string }>(
+      "SELECT status, error_code FROM documents WHERE id = $1",
+      [body.document.id],
+    );
+    expect(rows.rows).toEqual([
+      { status: "failed", error_code: "extraction_failed" },
+    ]);
+    const pages = await db.query(
+      "SELECT page_number FROM document_pages WHERE document_id = $1",
+      [body.document.id],
+    );
+    expect(pages.rows).toHaveLength(0);
   });
 });
