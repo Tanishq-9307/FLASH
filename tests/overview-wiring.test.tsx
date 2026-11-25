@@ -4,6 +4,7 @@
 // /api/health in the browser; Tasks and Notes arrive as props from the
 // server actions, and a failed server load passes null (covered in
 // tests/overview.test.tsx).
+import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UsagePanel } from "@/components/overview/usage-panel";
@@ -74,5 +75,22 @@ describe("UsagePanel real-data wiring", () => {
     // The Tasks-done gauge's own Unavailable label, distinct from the panel's.
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("0 of 0")).toBeNull();
+  });
+
+  // Phase 2 (live configuration): the usage-meter display setting.
+  it("showUsageMeter false hides the gauges and points at Settings", async () => {
+    render(<UsagePanel tasks={null} showUsageMeter={false} />);
+    expect(screen.getByText(/Usage meter is off/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.queryByText("7 of 20")).toBeNull();
+    expect(screen.queryByText(/% used/)).toBeNull();
+  });
+
+  it("showUsageMeter null (settings load failed) still shows the gauges", async () => {
+    render(<UsagePanel tasks={null} showUsageMeter={null} />);
+    expect(await screen.findByText("7 of 20")).toBeTruthy();
   });
 });

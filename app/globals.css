@@ -152,6 +152,21 @@ body::before {
   }
 }
 
+/* Phase 2 (live configuration): the owner's reduce-motion setting
+   renders data-reduce-motion="true" on <html> (app/layout.tsx) and
+   honours it exactly like the system preference above. */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+[data-reduce-motion="true"] body::before {
+  display: none;
+}
+
 /* DESIGN.md Section 7 (M2-9a): panel entrances. `.flash-enter` rises a
    panel into place; set `--enter-delay` (ms) on the element to stagger a
    group. The delay is capped in the Overview so the whole screen has

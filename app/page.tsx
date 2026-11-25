@@ -15,18 +15,20 @@ import { listNotes } from "@/app/tasks/note-actions";
 import { listOpenApprovals } from "@/app/approvals/actions";
 import { listActivity } from "@/app/activity/actions";
 import { getMemoryEnabled } from "@/app/memory/actions";
+import { getSettings } from "@/app/settings/actions";
 import { getCapabilityChips } from "@/lib/tools/registry";
 import { usageDateToday } from "@/lib/config";
 
 export const metadata = { title: "Overview · FLASH" };
 
 export default async function Home() {
-  const [tasks, notes, approvals, activity, memory] = await Promise.all([
+  const [tasks, notes, approvals, activity, memory, settings] = await Promise.all([
     listTasks(),
     listNotes(),
     listOpenApprovals(),
     listActivity(),
     getMemoryEnabled(),
+    getSettings(),
   ]);
   const tally = tasks.ok
     ? { done: tasks.data.filter((t) => t.status === "completed").length, total: tasks.data.length }
@@ -39,6 +41,7 @@ export default async function Home() {
           tasks={tally}
           openApprovals={openApprovals === null ? null : openApprovals.length}
           memoryEnabled={memory.ok ? memory.data : null}
+          showUsageMeter={settings.ok ? settings.data.show_usage_meter : null}
         />
       }
       tasks={tasks.ok ? tasks.data : null}

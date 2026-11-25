@@ -91,6 +91,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { chatModel, createFailoverState, modelIdFor } from "@/lib/ai/provider";
 import { usageDateToday, MAX_MODEL_CALLS_PER_REQUEST } from "@/lib/config";
+import { resolveCodingMode } from "@/lib/settings";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { dbMessagesToUIMessages, uiMessageText } from "@/lib/chat-history";
 import {
@@ -166,8 +167,6 @@ export async function POST(request: Request) {
     documentId,
     codingMode: codingModeFlag,
   } = parsed.data;
-  // Default off: an absent flag is a normal chat.
-  const codingMode = codingModeFlag === true;
 
   const supabase = await createClient();
   const {
@@ -180,6 +179,24 @@ export async function POST(request: Request) {
   // Captured once: the helpers below are closures, and TypeScript does
   // not carry the narrowing of the destructured `user` into them.
   const userId = user.id;
+
+  // Coding mode (Phase 2, live configuration): an explicit per-request
+  // flag always wins; when the request carries none, the owner's saved
+  // default (settings.default_coding_mode) decides. A missing settings
+  // row means off, and a failed read fails closed to off — the default
+  // model is always safe to fall back to.
+  let codingMode = codingModeFlag === true;
+  if (codingModeFlag === undefined) {
+    const { data: settingsRow } = await supabase
+      .from("settings")
+      .select("default_coding_mode")
+      .eq("user_id", userId)
+      .single();
+    codingMode = resolveCodingMode(
+      undefined,
+      settingsRow?.default_coding_mode === true,
+    );
+  }
 
   // Resolve or create the conversation (user-scoped client: RLS proves
   // ownership, and another user's conversation looks like it is absent).

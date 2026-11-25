@@ -24,7 +24,7 @@ import { createChatLatencyTracker, recordChatLatency } from "@/lib/telemetry";
 import { insertAtCursor } from "@/lib/clipboard";
 import { PasteFromClipboardButton } from "./clipboard-paste-button";
 import { researchedDataOf } from "@/lib/chat-history";
-import { PRIMARY_MODEL_ID, modelIdFor } from "@/lib/ai/models";
+import { modelIdFor } from "@/lib/ai/models";
 import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
 import {
   executeAction,
@@ -55,6 +55,7 @@ export default function Chat({
   initialMessages,
   conversationId,
   openApprovalId,
+  initialCodingMode,
 }: {
   initialMessages?: UIMessage[];
   conversationId?: string | null;
@@ -62,6 +63,9 @@ export default function Chat({
    * page, e.g. after following the delete-guard link): the dialog
    * opens for it without waiting for a new stream. */
   openApprovalId?: string | null;
+  /** Phase 2 (live configuration): the saved default model seeds the
+   * coding-mode toggle; the toggle still overrides it per session. */
+  initialCodingMode?: boolean;
 }) {
   const [input, setInput] = useState("");
   const router = useRouter();
@@ -102,20 +106,21 @@ export default function Chat({
   // or updated_at moving the row to the top) — re-list from the server.
   const refreshConversations = useRefreshConversations();
 
-  // Coding mode (2026-11-24): per-session client state, default OFF.
-  // The flag travels in the request body of every chat and resume
-  // call, so the route runs the larger Groq model (gpt-oss-120b)
-  // when it is on and the default 70B when it is off. Per-session
-  // (not per-conversation, not persisted): it is a per-turn choice,
-  // the toggle is always visible so the state is never hidden, and
-  // persisting it would need a database column for one bit of
-  // throwaway UI state. A refresh resets it to OFF.
-  const [codingMode, setCodingMode] = useState(false);
+  // Coding mode (2026-11-24): per-session client state, seeded from
+  // the owner's saved default (Phase 2: settings.default_coding_mode;
+  // absent means off). The flag travels in the request body of every
+  // chat and resume call, so the route runs the larger Groq model
+  // (gpt-oss-120b) when it is on and the default 70B when it is off.
+  // The toggle is always visible so the state is never hidden, and a
+  // refresh re-seeds it from the saved default.
+  const [codingMode, setCodingMode] = useState(initialCodingMode ?? false);
   // The model the header shows. Set from the toggle immediately (the
   // next call will use it) and confirmed by the server's data-model
   // part on every stream — the id shown is always the id the route
   // actually called with, never a guess.
-  const [activeModelId, setActiveModelId] = useState(PRIMARY_MODEL_ID);
+  const [activeModelId, setActiveModelId] = useState(
+    modelIdFor(initialCodingMode ?? false),
+  );
 
   // Silent web research (2026-11-24): the sources of the reply
   // currently streaming, from the server's data-researched part.

@@ -5,6 +5,7 @@ import Header from "@/components/header";
 import { MobileTabBar, NavRail } from "@/components/nav";
 import { QuickAskProvider } from "@/components/quick-ask";
 import { createClient } from "@/utils/supabase/server";
+import { getSettings } from "@/app/settings/actions";
 
 // DESIGN.md Section 4 (owner decision 2026-11-07): Barlow for body text,
 // Rajdhani for titles/labels/logo/greeting, JetBrains Mono for timestamps,
@@ -56,9 +57,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     hasOpenApproval = (data?.length ?? 0) > 0;
   }
 
+  // Phase 2 (live configuration): the reduce-motion preference is
+  // rendered on <html> so it applies from the first paint; the
+  // settings panel flips the same attribute live (lib/settings.ts).
+  // A failed load means off — the system preference still applies
+  // through the CSS media query.
+  const settings = await getSettings();
+  const reduceMotion = settings.ok ? settings.data.reduce_motion : false;
+
   return (
     <html
       lang="en"
+      data-reduce-motion={reduceMotion ? "true" : "false"}
       className={`${barlow.variable} ${rajdhani.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       {/* Navigation shell (M1-8): the icon rail is fixed on desktop, the tab

@@ -9,6 +9,7 @@
 import Chat from "@/components/chat";
 import { ConversationPanel } from "@/components/conversation-panel";
 import { createClient } from "@/utils/supabase/server";
+import { getSettings } from "@/app/settings/actions";
 import { dbMessagesToUIMessages } from "@/lib/chat-history";
 import type { ConversationSummary } from "@/lib/conversations";
 
@@ -25,6 +26,13 @@ export default async function Page({
 
   let initial: ConversationSummary[] = [];
   let loadError = false;
+  // Phase 2 (live configuration): the saved default model seeds the
+  // coding-mode toggle; the toggle still overrides it per session,
+  // and a failed load seeds it off.
+  const settings = await getSettings();
+  const defaultCodingMode = settings.ok
+    ? settings.data.default_coding_mode
+    : false;
   if (user) {
     const { data, error } = await supabase
       .from("conversations")
@@ -40,8 +48,8 @@ export default async function Page({
     </ConversationPanel>
   );
 
-  if (!id) return panel(<Chat key="new" />);
-  if (!user) return panel(<Chat key="new" />);
+  if (!id) return panel(<Chat key="new" initialCodingMode={defaultCodingMode} />);
+  if (!user) return panel(<Chat key="new" initialCodingMode={defaultCodingMode} />);
 
   const { data: conv, error: convError } = await supabase
     .from("conversations")
@@ -79,6 +87,7 @@ export default async function Page({
       conversationId={id}
       initialMessages={dbMessagesToUIMessages(data ?? [])}
       openApprovalId={openApprovalId}
+      initialCodingMode={defaultCodingMode}
     />,
   );
 }

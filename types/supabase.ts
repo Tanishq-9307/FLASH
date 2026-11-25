@@ -393,16 +393,25 @@ export type Database = {
           user_id: string
           memory_enabled: boolean
           telegram_proactive_enabled: boolean
+          default_coding_mode: boolean
+          reduce_motion: boolean
+          show_usage_meter: boolean
         }
         Insert: {
           user_id?: string
           memory_enabled?: boolean
           telegram_proactive_enabled?: boolean
+          default_coding_mode?: boolean
+          reduce_motion?: boolean
+          show_usage_meter?: boolean
         }
         Update: {
           user_id?: string
           memory_enabled?: boolean
           telegram_proactive_enabled?: boolean
+          default_coding_mode?: boolean
+          reduce_motion?: boolean
+          show_usage_meter?: boolean
         }
         Relationships: [
         ]

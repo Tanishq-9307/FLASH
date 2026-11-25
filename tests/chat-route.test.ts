@@ -740,6 +740,34 @@ describe("POST /api/chat", () => {
     expect(testState.lastGroqModelId).toBe(PRIMARY_MODEL_ID);
   });
 
+  // Phase 2 (live configuration): the saved default decides when the
+  // request carries no flag; an explicit flag still wins.
+  it("absent codingMode uses the saved default coding model", async () => {
+    await db.query(
+      "INSERT INTO settings (user_id, default_coding_mode) VALUES ($1, true)",
+      [userId],
+    );
+    const res = await POST(chatRequest(bodyFor("write a quicksort")));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("Hello");
+    expect(testState.lastGroqModelId).toBe(CODING_MODEL_ID);
+    expect(body).toContain(`"modelId":"${CODING_MODEL_ID}"`);
+  });
+
+  it("explicit codingMode false overrides a saved coding default", async () => {
+    await db.query(
+      "INSERT INTO settings (user_id, default_coding_mode) VALUES ($1, true)",
+      [userId],
+    );
+    const res = await POST(
+      chatRequest({ ...bodyFor("hi"), codingMode: false }),
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(testState.lastGroqModelId).toBe(PRIMARY_MODEL_ID);
+  });
+
   it("coding mode 429 fails over to the 70B backup", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "test-openrouter-key");
     testState.modelMode = "error429";

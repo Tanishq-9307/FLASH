@@ -76,6 +76,7 @@ export function UsagePanelView({
   openApprovals,
   memoryEnabled,
   telemetry = EMPTY_TELEMETRY,
+  showUsageMeter,
 }: {
   state: UsageState;
   tasks?: TaskTally;
@@ -85,7 +86,26 @@ export function UsagePanelView({
   memoryEnabled?: boolean | null;
   /** Measured app telemetry; absent means nothing has been measured yet. */
   telemetry?: TelemetryState;
+  /** Phase 2 (live configuration): the usage-meter display setting.
+   * False hides the gauges; null (load failed) shows them — a failed
+   * settings read must not hide real data. */
+  showUsageMeter?: boolean | null;
 }) {
+  // The meter is off: say so and point at Settings, instead of
+  // showing gauges the owner asked to hide — or a blank space.
+  if (showUsageMeter === false) {
+    return (
+      <Panel title="Usage & Limits" tourId="usage">
+        <p className="text-sm text-text-secondary">
+          Usage meter is off. Turn it on in{" "}
+          <a href="/settings" className="text-accent-cyan underline">
+            Settings
+          </a>{" "}
+          to see it again.
+        </p>
+      </Panel>
+    );
+  }
   const modelPercent =
     state.kind === "ok" ? usagePercent(state.usage, state.cap) : null;
   const searchPercent =
@@ -245,10 +265,13 @@ export function UsagePanel({
   tasks = null,
   openApprovals,
   memoryEnabled,
+  showUsageMeter,
 }: {
   tasks?: TaskTally;
   openApprovals?: number | null;
   memoryEnabled?: boolean | null;
+  /** Phase 2 (live configuration): the usage-meter display setting. */
+  showUsageMeter?: boolean | null;
 }) {
   const [state, setState] = useState<UsageState>({ kind: "loading" });
   // Browser-only readings, taken once at mount from the state
@@ -294,6 +317,7 @@ export function UsagePanel({
       openApprovals={openApprovals}
       memoryEnabled={memoryEnabled}
       telemetry={telemetry}
+      showUsageMeter={showUsageMeter}
     />
   );
 }
