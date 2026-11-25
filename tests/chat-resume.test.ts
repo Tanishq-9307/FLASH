@@ -17,6 +17,7 @@ import {
   createTestUser,
   deleteTestUser,
   kolkataToday,
+  searchCount,
   setTestUser,
   usageCount,
 } from "./db/helpers";
@@ -493,9 +494,14 @@ describe("POST /api/chat/resume (M3-20)", () => {
     testState.modelText = "Done — the task is created.";
     const res = await POST(resumeRequest(id));
     expect(res.status).toBe(200);
-    await res.text();
+    const body = await res.text();
     expect(testState.modelCalls).toBe(1);
     expect(await usageCount(db, userId)).toBe(1);
+    // Silent web research is deliberately not run here: the follow-up
+    // reports a database outcome, there is no user question to
+    // research — so no search is counted and no indicator is streamed.
+    expect(await searchCount(db, userId)).toBe(0);
+    expect(body).not.toContain("data-researched");
     // The follow-up prompt carries the database outcome, not a
     // browser-supplied one. The instructions are the first message
     // of the standardised prompt; read them raw (JSON.stringify

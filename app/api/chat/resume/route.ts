@@ -263,6 +263,11 @@ export async function POST(request: Request) {
   const history = dbMessagesToUIMessages(rows);
   const modelMessages = await convertToModelMessages(history);
 
+  // Silent web research is deliberately NOT run here: this follow-up
+  // reports a database outcome (an approval's settled state), and
+  // there is no user question to research. The chat route is the
+  // only place research runs. Hot-swap and coding mode below are
+  // untouched by that decision.
   const instructions = [
     "You are FLASH, a personal assistant. The owner just decided on a proposed action.",
     "Report ONLY the outcome below, in one or two plain sentences. Do not invent details, do not claim anything else happened, and do not ask a follow-up question unless the outcome needs one.",

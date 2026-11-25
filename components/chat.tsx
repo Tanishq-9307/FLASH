@@ -21,6 +21,7 @@ import SafeMarkdown from "./markdown";
 import { useQuickAsk } from "./quick-ask";
 import { useRefreshConversations } from "./conversations-context";
 import { createChatLatencyTracker, recordChatLatency } from "@/lib/telemetry";
+import { researchedDataOf } from "@/lib/chat-history";
 import { PRIMARY_MODEL_ID, modelIdFor } from "@/lib/ai/models";
 import { ApprovalController, resumeApproval } from "./approvals/approval-controller";
 import {
@@ -36,6 +37,16 @@ function textOf(message: { parts?: unknown }): string {
     .filter((part) => part.type === "text" && typeof part.text === "string")
     .map((part) => part.text as string)
     .join("");
+}
+
+/** Hostname for a source with no title, so the indicator never
+ * shows a bare link with no label. */
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "source";
+  }
 }
 
 export default function Chat({
@@ -82,6 +93,18 @@ export default function Chat({
   // part on every stream — the id shown is always the id the route
   // actually called with, never a guess.
   const [activeModelId, setActiveModelId] = useState(PRIMARY_MODEL_ID);
+
+  // Silent web research (2026-11-24): the sources of the reply
+  // currently streaming, from the server's data-researched part.
+  // The streamed data part also lands in the message's own parts
+  // (and the persisted reply carries one from the database), so
+  // this is only the bridge for the frames before the part is
+  // attached — it is cleared on the next send, never carried
+  // across turns.
+  const [liveResearched, setLiveResearched] = useState<Array<{
+    title: string;
+    url: string;
+  }> | null>(null);
 
   // App telemetry (2026-11-24): the reply is timed client-side, send →
   // first streamed token → completion, and the completed sample is kept
@@ -138,6 +161,16 @@ export default function Chat({
           router.refresh();
         }
       }
+      // Silent web research ran for this turn (data-researched): the
+      // reply gets a small "researched the web" indicator. The part
+      // also lands in the message's parts, so this state is only the
+      // bridge until it is attached there.
+      if (part.type === "data-researched") {
+        const parsed = researchedDataOf({
+          parts: [{ type: "data-researched", data: part.data }],
+        });
+        setLiveResearched(parsed ?? []);
+      }
     },
     onFinish: () => {
       refreshConversations();
@@ -183,6 +216,7 @@ export default function Chat({
     const text = pending;
     clear();
     latencyTracker.onSend();
+    setLiveResearched(null);
     void sendMessage({ text });
   }, [pending, clear, sendMessage, latencyTracker]);
 
@@ -208,8 +242,15 @@ export default function Chat({
     if (!text || isStreaming) return;
     setInput("");
     latencyTracker.onSend();
+    setLiveResearched(null);
     void sendMessage({ text });
   }
+
+  // The last assistant message: the live-researched bridge belongs
+  // to it while its stream is in flight.
+  const lastAssistantId = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant")?.id;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl flex-col px-4 py-6">
@@ -273,6 +314,47 @@ export default function Chat({
               <div key={message.id} className="flex justify-start">
                 <div className="max-w-[90%] text-text-primary">
                   <SafeMarkdown text={text} />
+                  {/* Silent web research indicator: shown only when
+                      this reply was actually researched — from the
+                      message's own data-researched part (persisted
+                      replies) or the live bridge (the reply now
+                      streaming). Small, Electric Cyan, with real
+                      sources as links when Tavily returned any; no
+                      sources are ever invented. */}
+                  {(() => {
+                    const researched =
+                      researchedDataOf(message) ??
+                      (message.id === lastAssistantId && liveResearched !== null
+                        ? liveResearched
+                        : null);
+                    if (researched === null) return null;
+                    return (
+                      <p className="mt-1 font-mono text-[11px] text-accent-cyan">
+                        <span aria-hidden="true">⌕ </span>
+                        Researched the web
+                        {researched.length > 0 ? (
+                          <>
+                            {" — "}
+                            {researched.map((source, i) => (
+                              <span key={source.url}>
+                                {i > 0 ? ", " : ""}
+                                <a
+                                  href={source.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline"
+                                >
+                                  {source.title !== ""
+                                    ? source.title
+                                    : domainOf(source.url)}
+                                </a>
+                              </span>
+                            ))}
+                          </>
+                        ) : null}
+                      </p>
+                    );
+                  })()}
                   {isStreaming &&
                     message.id === messages[messages.length - 1]?.id && (
                       <span aria-hidden="true" className="ml-1 inline-block h-4 w-2 animate-pulse bg-accent-cyan" />
@@ -291,6 +373,7 @@ export default function Chat({
             type="button"
             onClick={() => {
               latencyTracker.onSend();
+              setLiveResearched(null);
               void regenerate();
             }}
             className="flex min-h-11 items-center rounded-md border border-border-strong px-4 text-sm text-text-primary"

@@ -103,6 +103,11 @@ import { loadMemoryBlock } from "@/lib/memory-injection";
 import { toJson } from "@/lib/json";
 import { toModelTools } from "@/lib/tools/registry";
 import { executeToolCall } from "@/lib/tools/execute-tool-call";
+import {
+  runSilentResearch,
+  shouldResearch,
+  type SilentResearchResult,
+} from "@/lib/search/silent-research";
 
 export const maxDuration = 60;
 
@@ -301,24 +306,30 @@ export async function POST(request: Request) {
     }
   }
 
+  // The question is the new message, or the last user message on a
+  // regenerate. It is the document query below and the silent
+  // research query after it.
+  const lastUserMessage = [...history]
+    .reverse()
+    .find((m) => m.role === "user");
+  const questionText = message
+    ? message.parts[0].text
+    : lastUserMessage
+      ? uiMessageText(lastUserMessage)
+      : "";
+
   // Retrieve the document's relevant pages for the question (M5-4). The
   // question is the new message, or the last user message on a regenerate.
   // A retrieval failure is before dispatch: refund and fail closed.
   let documentPages: RetrievedPage[] = [];
   let documentContext: string | null = null;
   if (documentId && documentTitle !== null) {
-    const lastUser = [...history].reverse().find((m) => m.role === "user");
-    const queryText = message
-      ? message.parts[0].text
-      : lastUser
-        ? uiMessageText(lastUser)
-        : "";
     try {
       documentPages = await searchDocumentPages(
         supabase,
         user.id,
         documentId,
-        queryText,
+        questionText,
       );
     } catch (err) {
       await admin.rpc("refund_api_call", {
@@ -345,9 +356,39 @@ export async function POST(request: Request) {
     console.error("Memory load failed", err);
   }
 
+  // Silent web research (2026-11-24): when the question needs
+  // current or external information, run ONE background Tavily
+  // search before answering and feed the findings into the model's
+  // instructions — never into the transcript. Skipped for document
+  // questions (the document is the source of truth) and for
+  // questions the heuristic says need no research. A missing key,
+  // an empty result, or a provider failure means no research: the
+  // turn continues without it, honestly, and the reply is not
+  // marked as researched. A research failure never fails the turn:
+  // runSilentResearch returns a status, and anything unexpected is
+  // caught here so the model still answers from its own knowledge.
+  // Runs after the model-call gate, before the stream starts, so a
+  // research failure costs no extra model call.
+  let research: Extract<SilentResearchResult, { status: "ok" }> | null =
+    null;
+  if (!documentId && shouldResearch(questionText)) {
+    try {
+      const result = await runSilentResearch({
+        admin,
+        userId,
+        conversationId,
+        query: questionText,
+      });
+      if (result.status === "ok") research = result;
+    } catch (err) {
+      console.error("Silent research failed unexpectedly", err);
+    }
+  }
+
   const instructionParts = [SYSTEM_PROMPT];
   if (memoryBlock) instructionParts.push(memoryBlock);
   if (documentContext) instructionParts.push(documentContext);
+  if (research) instructionParts.push(research.contextBlock);
   const instructions = instructionParts.join("\n\n");
 
   // The model messages for the loop: history first, then each step's
@@ -419,6 +460,16 @@ export async function POST(request: Request) {
         type: "data-model",
         data: { modelId: modelIdFor(codingMode) },
       });
+      // Silent web research ran for this turn: the client shows a
+      // small "researched the web" indicator on this reply. Only
+      // written when research actually returned useful results —
+      // never for an empty run, a failure, or a missing key.
+      if (research) {
+        writer.write({
+          type: "data-researched",
+          data: { sources: research.sources },
+        });
+      }
 
       // Tool loop (M3-17): at most MAX_MODEL_CALLS_PER_REQUEST model
       // calls. Each call is one step (stopWhen: stepCountIs(1)) and is
@@ -503,13 +554,29 @@ export async function POST(request: Request) {
                 isAborted || isCancelled === true || outcome.status !== "completed";
               const text = uiMessageText(responseMessage);
               if (!text) return;
+              // A researched reply persists its flag (with sources) in
+              // `parts` so the indicator survives a refresh — the
+              // findings themselves stay out of the transcript: they
+              // were context for this turn only. An aborted researched
+              // reply keeps both markers.
+              const researchedParts =
+                research !== null
+                  ? {
+                      ...(aborted ? { incomplete: true } : {}),
+                      researched: true,
+                      sources: research.sources,
+                    }
+                  : aborted
+                    ? { incomplete: true }
+                    : null;
               try {
                 await admin.rpc("append_message", {
                   p_user_id: user.id,
                   p_conversation_id: conversationId,
                   p_role: "assistant",
                   p_content: text,
-                  p_parts: aborted ? { incomplete: true } : null,
+                  p_parts:
+                    researchedParts === null ? null : toJson(researchedParts),
                   p_tool_call_id: null,
                 });
               } catch (err) {

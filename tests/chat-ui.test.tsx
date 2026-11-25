@@ -13,7 +13,15 @@ import { CHAT_LATENCY_KEY } from "@/lib/telemetry";
 import { CODING_MODEL_ID, PRIMARY_MODEL_ID } from "@/lib/ai/models";
 
 type ChatState = {
-  messages: Array<{ id: string; role: string; parts: Array<{ type: string; text: string }> }>;
+  messages: Array<{
+    id: string;
+    role: string;
+    parts: Array<{
+      type: string;
+      text?: string;
+      data?: { sources?: Array<{ title: string; url: string }> };
+    }>;
+  }>;
   status: "ready" | "submitted" | "streaming" | "error";
   error: Error | undefined;
   sendMessage: ReturnType<typeof vi.fn>;
@@ -77,6 +85,21 @@ function userMessage(id: string, text: string) {
 
 function assistantMessage(id: string, text: string) {
   return { id, role: "assistant", parts: [{ type: "text", text }] };
+}
+
+function researchedAssistantMessage(
+  id: string,
+  text: string,
+  sources: Array<{ title: string; url: string }>,
+) {
+  return {
+    id,
+    role: "assistant",
+    parts: [
+      { type: "text", text },
+      { type: "data-researched", data: { sources } },
+    ],
+  };
 }
 
 describe("Chat UI", () => {
@@ -255,5 +278,60 @@ describe("Chat UI", () => {
     chatState.current = { ...chatState.current, status: "ready" };
     rerender(chat());
     expect(window.localStorage.getItem(CHAT_LATENCY_KEY)).toBeNull();
+  });
+
+  // Silent web research (2026-11-24): a reply whose message carries
+  // a data-researched part shows a small "researched the web"
+  // indicator with the real sources as links; an unresearched reply
+  // shows nothing.
+  it("shows the researched indicator with real source links on a researched reply", () => {
+    chatState.current.messages = [
+      userMessage("u1", "latest ISRO news"),
+      researchedAssistantMessage("a1", "Hello", [
+        { title: "ISRO launches", url: "https://example.com/isro" },
+        { title: "Second report", url: "https://example.com/second" },
+      ]),
+    ];
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    expect(screen.getByText(/Researched the web/)).toBeDefined();
+    const link = screen.getByRole("link", { name: "ISRO launches" });
+    expect(link.getAttribute("href")).toBe("https://example.com/isro");
+    expect(
+      screen.getByRole("link", { name: "Second report" }),
+    ).toBeDefined();
+  });
+
+  it("shows no researched indicator on an unresearched reply", () => {
+    chatState.current.messages = [
+      userMessage("u1", "hello"),
+      assistantMessage("a1", "Hello"),
+    ];
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    expect(screen.queryByText(/Researched the web/)).toBeNull();
+  });
+
+  it("shows the source domain when a researched source has no title", () => {
+    chatState.current.messages = [
+      researchedAssistantMessage("a1", "Hello", [
+        { title: "", url: "https://example.com/untitled" },
+      ]),
+    ];
+    render(
+      <QuickAskProvider>
+        <Chat />
+      </QuickAskProvider>,
+    );
+    expect(screen.getByText(/Researched the web/)).toBeDefined();
+    expect(
+      screen.getByRole("link", { name: "example.com" }),
+    ).toBeDefined();
   });
 });

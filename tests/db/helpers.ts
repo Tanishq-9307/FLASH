@@ -157,3 +157,42 @@ export async function usageCount(db: PGlite, userId: string): Promise<number> {
   );
   return r.rows.length === 0 ? 0 : r.rows[0].model_calls;
 }
+
+/** Current web-search count for a user (sum across days, read as
+ * superuser, for assertions). One row per day; silent research and
+ * the web_search tool share this counter. */
+export async function searchCount(db: PGlite, userId: string): Promise<number> {
+  const r = await db.query<{ total: number }>(
+    "SELECT COALESCE(SUM(searches), 0) AS total FROM search_usage WHERE user_id = $1",
+    [userId],
+  );
+  return Number(r.rows[0]?.total ?? 0);
+}
+
+/** The user's action_logs rows, oldest first (read as superuser). */
+export async function activityRows(
+  db: PGlite,
+  userId: string,
+): Promise<
+  Array<{
+    tool_name: string;
+    parameters: unknown;
+    execution_status: string;
+    result_payload: unknown;
+    conversation_id: string | null;
+    tool_call_id: string;
+  }>
+> {
+  const r = await db.query<{
+    tool_name: string;
+    parameters: unknown;
+    execution_status: string;
+    result_payload: unknown;
+    conversation_id: string | null;
+    tool_call_id: string;
+  }>(
+    "SELECT tool_name, parameters, execution_status, result_payload, conversation_id, tool_call_id FROM action_logs WHERE user_id = $1 ORDER BY created_at ASC, id ASC",
+    [userId],
+  );
+  return r.rows;
+}

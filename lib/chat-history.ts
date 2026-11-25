@@ -36,13 +36,98 @@ function isIncomplete(parts: unknown): boolean {
   );
 }
 
+/** The sources of a researched assistant reply, from the persisted
+ * `parts` object ({ researched: true, sources: [{ title, url }] }).
+ * Null when the reply was not researched, or the stored sources are
+ * not well-formed — a malformed row never renders a fake indicator. */
+export function researchedSourcesOf(
+  parts: unknown,
+): Array<{ title: string; url: string }> | null {
+  if (typeof parts !== "object" || parts === null) return null;
+  const record = parts as {
+    researched?: unknown;
+    sources?: unknown;
+  };
+  if (record.researched !== true) return null;
+  if (!Array.isArray(record.sources)) return [];
+  const sources: Array<{ title: string; url: string }> = [];
+  for (const item of record.sources) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as { title?: unknown }).title === "string" &&
+      typeof (item as { url?: unknown }).url === "string"
+    ) {
+      sources.push({
+        title: (item as { title: string }).title,
+        url: (item as { url: string }).url,
+      });
+    }
+  }
+  return sources;
+}
+
+/** The sources of a UI message's "researched the web" indicator, if
+ * the message carries a data-researched part (persisted replies get
+ * one from dbMessagesToUIMessages; live streams get one from the
+ * server's data-researched data part). Null when the reply was not
+ * researched. */
+export function researchedDataOf(message: {
+  parts?: unknown;
+}): Array<{ title: string; url: string }> | null {
+  const parts = (message.parts ?? []) as Array<{
+    type?: string;
+    data?: unknown;
+  }>;
+  for (const part of parts) {
+    if (part.type !== "data-researched") continue;
+    const data = part.data as { sources?: unknown } | null;
+    if (typeof data !== "object" || data === null) return [];
+    if (!Array.isArray(data.sources)) return [];
+    const sources: Array<{ title: string; url: string }> = [];
+    for (const item of data.sources) {
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as { title?: unknown }).title === "string" &&
+        typeof (item as { url?: unknown }).url === "string"
+      ) {
+        sources.push({
+          title: (item as { title: string }).title,
+          url: (item as { url: string }).url,
+        });
+      }
+    }
+    return sources;
+  }
+  return null;
+}
+
 export function dbMessagesToUIMessages(rows: DbMessageRow[]): UIMessage[] {
   const messages: UIMessage[] = [];
   for (const row of rows) {
+    const parts: UIMessage["parts"] = [
+      { type: "text", text: row.content },
+    ];
+    // A researched reply (silent web research, 2026-11-24) carries a
+    // data-researched part so the indicator survives a refresh. The
+    // model never sees it: convertToModelMessages drops data parts
+    // without a convertDataPart, and the research findings themselves
+    // were already in that turn's instructions, never in the
+    // transcript — so the next turn gets the clean text only.
+    if (row.role === "assistant") {
+      const sources = researchedSourcesOf(row.parts);
+      if (sources !== null) {
+        parts.push({
+          type: "data-researched",
+          data: { sources },
+        });
+      }
+    }
     messages.push({
       id: row.id,
       role: row.role === "tool" ? "system" : (row.role as UIMessage["role"]),
-      parts: [{ type: "text", text: row.content }],
+      parts,
     });
     if (row.role === "assistant" && isIncomplete(row.parts)) {
       messages.push({
